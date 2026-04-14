@@ -1,45 +1,31 @@
-FROM lncm/bitcoind:v27.2
-MAINTAINER Kim Duffy "kimhd@mit.edu"
+FROM python:3.13-slim
 
-USER root
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src
 
-COPY . /cert-issuer
-COPY conf_regtest.ini /etc/cert-issuer/conf.ini
+WORKDIR /app
 
-RUN apk add --update \
-        bash \
-        ca-certificates \
-        curl \
-        gcc \
-        gmp-dev \
-        libffi-dev \
-        libressl-dev \
-        libxml2-dev \
-        libxslt-dev \
-        linux-headers \
-        make \
-        musl-dev \
-        python3 \
-        python3-dev \
-        tar \
-        git \
-    && python3 -m venv .venv \
-    && . .venv/bin/activate \
-    && python3 -m ensurepip \
-    && pip3 install --upgrade pip setuptools \
-    && pip3 install Cython \
-    && pip3 install wheel \
-    && mkdir -p /etc/cert-issuer/data/unsigned_certificates \
-    && mkdir /etc/cert-issuer/data/blockchain_certificates \
-    && mkdir ~/.bitcoin \
-    && echo $'[regtest]\nrpcuser=foo\nrpcpassword=bar\nrpcport=8332\nregtest=1\nrelaypriority=0\nrpcallowip=127.0.0.1\nrpcconnect=127.0.0.1\n' > /root/.bitcoin/bitcoin.conf \
-    && pip3 install /cert-issuer/. \
-    && pip3 install -r /cert-issuer/ethereum_requirements.txt \
-    && rm -r /usr/lib/python*/ensurepip \
-    && rm -rf /var/cache/apk/* \
-    && rm -rf /root/.cache
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
+COPY requirements.txt ./requirements.txt
+COPY ethereum_requirements.txt ./ethereum_requirements.txt
+COPY requirements-app.txt ./requirements-app.txt
+RUN pip install --no-cache-dir -r requirements-app.txt
 
-ENTRYPOINT bitcoind -daemon && bash
+COPY cert_issuer ./cert_issuer
+COPY src ./src
+COPY assets ./assets
+COPY docs ./docs
+COPY examples ./examples
+COPY scripts ./scripts
+COPY .env.example ./.env.example
 
+RUN chmod +x /app/scripts/start-dev.sh /app/scripts/generate-samples.sh
 
+EXPOSE 8000
+
+CMD ["uvicorn", "utcj_microcredentials.app:app", "--host", "0.0.0.0", "--port", "8000"]

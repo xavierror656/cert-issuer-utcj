@@ -1,0 +1,70 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    {
+      "certificateId": "https://microcredenciales.utcj.edu.mx/ns#certificateId",
+      "givenName": "https://schema.org/givenName",
+      "familyName": "https://schema.org/familyName",
+      "courseName": "https://microcredenciales.utcj.edu.mx/ns#courseName",
+      "hours": "https://microcredenciales.utcj.edu.mx/ns#hours",
+      "skills": {
+        "@id": "https://microcredenciales.utcj.edu.mx/ns#skills",
+        "@container": "@set"
+      },
+      "grade": "https://microcredenciales.utcj.edu.mx/ns#grade",
+      "issuerName": "https://microcredenciales.utcj.edu.mx/ns#issuerName",
+      "programType": "https://microcredenciales.utcj.edu.mx/ns#programType",
+      "issueDate": "https://microcredenciales.utcj.edu.mx/ns#issueDate",
+      "evidenceUrl": "https://microcredenciales.utcj.edu.mx/ns#evidenceUrl"
+    },
+    "https://w3id.org/blockcerts/v3.2",
+    {
+      "@vocab": "http://fallback.org/"
+    },
+    "https://w3id.org/security/data-integrity/v2"
+  ],
+  "id": "urn:uuid:207299b9-5b7f-48dc-beee-24c647cfd651",
+  "type": [
+    "VerifiableCredential",
+    "BlockcertsCredential"
+  ],
+  "issuer": "http://localhost:8000/issuer-profile",
+  "validFrom": "2026-04-15T00:00:00Z",
+  "name": "Microcredencial en Inteligencia Artificial Aplicada a Manufactura Inteligente",
+  "description": "Acredita competencias en aprendizaje automatico, analitica industrial, mantenimiento predictivo y despliegue de soluciones de IA para entornos de manufactura inteligente.",
+  "credentialSubject": {
+    "id": "urn:uuid:e3550ecb-a236-430f-92c9-67ec1683bee7",
+    "certificateId": "207299b9-5b7f-48dc-beee-24c647cfd651",
+    "givenName": "Javier Alejandro",
+    "familyName": "Flores Flores",
+    "name": "Javier Alejandro Flores Flores",
+    "email": "javier.alejandro.flores@ejemplo.utcj.mx",
+    "issueDate": "2026-04-15",
+    "courseName": "Diplomado de IA Aplicada a Manufactura Inteligente",
+    "hours": 40,
+    "skills": [
+      "Machine Learning industrial",
+      "Mantenimiento predictivo",
+      "Python para analitica",
+      "Modelado de datos",
+      "Automatizacion inteligente"
+    ],
+    "grade": "Acreditado",
+    "issuerName": "Universidad Tecnologica de Ciudad Juarez",
+    "programType": "Microcredencial verificable",
+    "evidenceUrl": "https://example.org/evidence/ia-manufactura"
+  },
+  "display": {
+    "contentMediaType": "text/html",
+    "content": "<div style=\"max-width:900px;margin:0 auto;padding:28px;border-radius:24px;background:linear-gradient(135deg,#F7FBFA,#E8F1EE);border:1px solid #d7e6e1;color:#1F2937;font-family:Georgia,serif;\">\n  <div style=\"font:700 13px Arial,sans-serif;letter-spacing:0.18em;text-transform:uppercase;color:#0F6A52;\">UTCJ | Microcredenciales verificables</div>\n  <h1 style=\"margin:14px 0 6px;font-size:34px;line-height:1.1;color:#0F3E4A;\">Microcredencial en Inteligencia Artificial Aplicada a Manufactura Inteligente</h1>\n  <div style=\"font-size:24px;color:#1F2937;margin-bottom:14px;\">Javier Alejandro Flores Flores</div>\n  <p style=\"font:16px/1.5 Arial,sans-serif;margin:0 0 16px;\">Emision institucional UTCJ para <strong>Diplomado de IA Aplicada a Manufactura Inteligente</strong>.</p>\n  <div><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Machine Learning industrial</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Mantenimiento predictivo</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Python para analitica</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Modelado de datos</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Automatizacion inteligente</span></div>\n  <p style=\"font:14px/1.5 Arial,sans-serif;margin-top:18px;\">Artefacto principal verificable: JSON Blockcerts. Representacion visual: <a href=\"http://localhost:8000/certificate/207299b9-5b7f-48dc-beee-24c647cfd651/visual.svg\">SVG institucional</a>. Descarga: <a href=\"http://localhost:8000/certificate/207299b9-5b7f-48dc-beee-24c647cfd651\">JSON emitido</a>.</p>\n</div>"
+  },
+  "proof": {
+    "id": "urn:uuid:fa627d55-f30d-4f29-a426-3779067d5803",
+    "type": "DataIntegrityProof",
+    "cryptosuite": "merkle-proof-2019",
+    "proofPurpose": "assertionMethod",
+    "created": "2026-03-07T03:59:06Z",
+    "proofValue": "zEuZQLZTYrdsDv2GXLwvxit1eCa3v8yrqdyzJAqYFYqTgmBnLwwT5QaABujrGMBhUWQnAR5jdyK2pZL1D5uPHRQbFnzCYALiVGgXcU1o2ntz2iQG8YTQ5QLg41L6ZzJyXVYpLFtd23H1BwBUNTyZoDcEPYzpnyRwoZ3NwjnKERjvwmGs7jP85oC4shYybQopdw5sDkDwhctEdh4fimcGK6P1E65CWFHw8mshMt3wjHSdL2rgdxP2eNVNKPQ9GkYboi9K48CJLVJqVqszJs5ywbpwqjysdHX6qMfNYADCU98Y1Dz",
+    "verificationMethod": "http://localhost:8000/issuer-profile#key-1"
+  }
+}

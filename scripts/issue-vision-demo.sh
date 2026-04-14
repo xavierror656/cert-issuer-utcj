@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+API_BASE_URL="${API_BASE_URL:-https://utcjmicro.javierflores.software}"
+
+curl -X POST "${API_BASE_URL}/issue" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "recipient": {
+      "given_name": "Javier Alejandro",
+      "family_name": "Flores Flores",
+      "email": "javier.alejandro.flores.2@gmail.com"
+    },
+    "credential": {
+      "title": "Microcredencial en Vision por Computadora Industrial",
+      "description": "Acredita competencias en deteccion de objetos, inspeccion visual automatizada y despliegue edge AI en entornos industriales.",
+      "issue_date": "2026-04-15",
+      "course_name": "Diplomado de IA Aplicada a Manufactura Inteligente",
+      "hours": 40,
+      "skills": [
+        "Computer Vision",
+        "YOLO",
+        "Deep Learning",
+        "Edge AI",
+        "Inspeccion industrial automatizada"
+      ],
+      "grade": "Acreditado",
+      "evidence_url": "https://example.org/evidence/demo"
+    },
+    "issuer": {
+      "name": "Universidad Tecnologica de Ciudad Juarez",
+      "id": "utcj"
+    },
+    "chain": "ethereum_sepolia"
+  }'

@@ -1,0 +1,13 @@
+services:
+  utcj-microcredentials:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/utcj_microcredentials:/app/data/utcj_microcredentials
+      - ./assets:/app/assets
+      - ./examples:/app/examples

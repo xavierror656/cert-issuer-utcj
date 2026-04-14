@@ -1,0 +1,28 @@
+{
+  "recipient": {
+    "given_name": "Sofia Fernanda",
+    "family_name": "Ramirez Ortega",
+    "email": "sofia.ramirez@ejemplo.utcj.mx"
+  },
+  "credential": {
+    "title": "Microcredencial en Vision por Computadora Industrial",
+    "description": "Acredita competencias en deteccion de objetos, inspeccion visual automatizada, entrenamiento de modelos YOLO y despliegue edge AI en lineas de produccion.",
+    "issue_date": "2026-04-20",
+    "course_name": "Diplomado de IA Aplicada a Manufactura Inteligente",
+    "hours": 40,
+    "skills": [
+      "Computer Vision",
+      "YOLO",
+      "Deep Learning",
+      "Edge AI",
+      "Inspeccion industrial automatizada"
+    ],
+    "grade": "Acreditado",
+    "evidence_url": "https://example.org/evidence/vision-industrial"
+  },
+  "issuer": {
+    "name": "Universidad Tecnologica de Ciudad Juarez",
+    "id": "utcj"
+  },
+  "chain": "mockchain"
+}

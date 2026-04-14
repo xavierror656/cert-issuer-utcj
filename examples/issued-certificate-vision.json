@@ -1,0 +1,70 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    {
+      "certificateId": "https://microcredenciales.utcj.edu.mx/ns#certificateId",
+      "givenName": "https://schema.org/givenName",
+      "familyName": "https://schema.org/familyName",
+      "courseName": "https://microcredenciales.utcj.edu.mx/ns#courseName",
+      "hours": "https://microcredenciales.utcj.edu.mx/ns#hours",
+      "skills": {
+        "@id": "https://microcredenciales.utcj.edu.mx/ns#skills",
+        "@container": "@set"
+      },
+      "grade": "https://microcredenciales.utcj.edu.mx/ns#grade",
+      "issuerName": "https://microcredenciales.utcj.edu.mx/ns#issuerName",
+      "programType": "https://microcredenciales.utcj.edu.mx/ns#programType",
+      "issueDate": "https://microcredenciales.utcj.edu.mx/ns#issueDate",
+      "evidenceUrl": "https://microcredenciales.utcj.edu.mx/ns#evidenceUrl"
+    },
+    "https://w3id.org/blockcerts/v3.2",
+    {
+      "@vocab": "http://fallback.org/"
+    },
+    "https://w3id.org/security/data-integrity/v2"
+  ],
+  "id": "urn:uuid:a71c5ea4-6688-40f5-a7c8-5bfd4e81589d",
+  "type": [
+    "VerifiableCredential",
+    "BlockcertsCredential"
+  ],
+  "issuer": "http://localhost:8000/issuer-profile",
+  "validFrom": "2026-04-20T00:00:00Z",
+  "name": "Microcredencial en Vision por Computadora Industrial",
+  "description": "Acredita competencias en deteccion de objetos, inspeccion visual automatizada, entrenamiento de modelos YOLO y despliegue edge AI en lineas de produccion.",
+  "credentialSubject": {
+    "id": "urn:uuid:6e44e7ce-83c1-4555-87c6-b008ecfce078",
+    "certificateId": "a71c5ea4-6688-40f5-a7c8-5bfd4e81589d",
+    "givenName": "Sofia Fernanda",
+    "familyName": "Ramirez Ortega",
+    "name": "Sofia Fernanda Ramirez Ortega",
+    "email": "sofia.ramirez@ejemplo.utcj.mx",
+    "issueDate": "2026-04-20",
+    "courseName": "Diplomado de IA Aplicada a Manufactura Inteligente",
+    "hours": 40,
+    "skills": [
+      "Computer Vision",
+      "YOLO",
+      "Deep Learning",
+      "Edge AI",
+      "Inspeccion industrial automatizada"
+    ],
+    "grade": "Acreditado",
+    "issuerName": "Universidad Tecnologica de Ciudad Juarez",
+    "programType": "Microcredencial verificable",
+    "evidenceUrl": "https://example.org/evidence/vision-industrial"
+  },
+  "display": {
+    "contentMediaType": "text/html",
+    "content": "<div style=\"max-width:900px;margin:0 auto;padding:28px;border-radius:24px;background:linear-gradient(135deg,#F7FBFA,#E8F1EE);border:1px solid #d7e6e1;color:#1F2937;font-family:Georgia,serif;\">\n  <div style=\"font:700 13px Arial,sans-serif;letter-spacing:0.18em;text-transform:uppercase;color:#0F6A52;\">UTCJ | Microcredenciales verificables</div>\n  <h1 style=\"margin:14px 0 6px;font-size:34px;line-height:1.1;color:#0F3E4A;\">Microcredencial en Vision por Computadora Industrial</h1>\n  <div style=\"font-size:24px;color:#1F2937;margin-bottom:14px;\">Sofia Fernanda Ramirez Ortega</div>\n  <p style=\"font:16px/1.5 Arial,sans-serif;margin:0 0 16px;\">Emision institucional UTCJ para <strong>Diplomado de IA Aplicada a Manufactura Inteligente</strong>.</p>\n  <div><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Computer Vision</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">YOLO</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Deep Learning</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Edge AI</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Inspeccion industrial automatizada</span></div>\n  <p style=\"font:14px/1.5 Arial,sans-serif;margin-top:18px;\">Artefacto principal verificable: JSON Blockcerts. Representacion visual: <a href=\"http://localhost:8000/certificate/a71c5ea4-6688-40f5-a7c8-5bfd4e81589d/visual.svg\">SVG institucional</a>. Descarga: <a href=\"http://localhost:8000/certificate/a71c5ea4-6688-40f5-a7c8-5bfd4e81589d\">JSON emitido</a>.</p>\n</div>"
+  },
+  "proof": {
+    "id": "urn:uuid:8729da78-6be6-4c1f-968b-eb9f64d25ada",
+    "type": "DataIntegrityProof",
+    "cryptosuite": "merkle-proof-2019",
+    "proofPurpose": "assertionMethod",
+    "created": "2026-03-07T03:59:06Z",
+    "proofValue": "zEuZQLZTYrdsDv2GsTqMBnDjKeDVV4LF8jvkHzYPKZTHWeMDJNZ7KR7eizZAFN2GdsmbUowXRdy9ng9yhqRWZQbU6XfmAGDrAVpATQgjv9RPMSttiDrespBTpkcuf4pLwAQ743DkSMMBfLwNdYt7oY3At6L5EukPhBG58t1kr97sSb6XEFwtP2aNptP4v5qkeEdamZpzS9cB6AMY3w8nwVCBpJuNqJWRqwDhQWeXUQ6Yt71EqcPHJrmd8f6PqpyVn1SxdGdoCBGd4ZdSxeULx5aChrLdSKscERXqgfwAW4gq1Ng",
+    "verificationMethod": "http://localhost:8000/issuer-profile#key-1"
+  }
+}

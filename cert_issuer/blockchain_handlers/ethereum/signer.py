@@ -30,7 +30,10 @@ class EthereumSigner(Signer):
         if isinstance(transaction_to_sign, dict):
             try:
                 transaction_to_sign['chainId'] = self.netcode
-                raw_tx = web3.Account.sign_transaction(transaction_to_sign, wif)['rawTransaction']
+                signed_tx = web3.Account.sign_transaction(transaction_to_sign, wif)
+                raw_tx = getattr(signed_tx, 'rawTransaction', None)
+                if raw_tx is None:
+                    raw_tx = getattr(signed_tx, 'raw_transaction')
                 raw_tx_hex = to_hex(raw_tx)
                 return raw_tx_hex
             except Exception as msg:

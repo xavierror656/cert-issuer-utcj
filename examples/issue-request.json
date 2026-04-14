@@ -1,0 +1,28 @@
+{
+  "recipient": {
+    "given_name": "Javier Alejandro",
+    "family_name": "Flores Flores",
+    "email": "javier.alejandro.flores@ejemplo.utcj.mx"
+  },
+  "credential": {
+    "title": "Microcredencial en Inteligencia Artificial Aplicada a Manufactura Inteligente",
+    "description": "Acredita competencias en aprendizaje automatico, analitica industrial, mantenimiento predictivo y despliegue de soluciones de IA para entornos de manufactura inteligente.",
+    "issue_date": "2026-04-15",
+    "course_name": "Diplomado de IA Aplicada a Manufactura Inteligente",
+    "hours": 40,
+    "skills": [
+      "Machine Learning industrial",
+      "Mantenimiento predictivo",
+      "Python para analitica",
+      "Modelado de datos",
+      "Automatizacion inteligente"
+    ],
+    "grade": "Acreditado",
+    "evidence_url": "https://example.org/evidence/ia-manufactura"
+  },
+  "issuer": {
+    "name": "Universidad Tecnologica de Ciudad Juarez",
+    "id": "utcj"
+  },
+  "chain": "mockchain"
+}
