@@ -2081,7 +2081,9 @@ def admin_dashboard(
     
     # Check Sepolia/Ethereum Wallet Balance
     balance = get_wallet_balance(settings)
-    is_low_balance = balance < 0.05
+    chain = getattr(settings, "default_chain", "ethereum_sepolia")
+    threshold = 0.003 if chain == "ethereum_mainnet" else 0.05
+    is_low_balance = balance < threshold
     balance_class = "bg-red-50 text-red-700 border-red-100" if is_low_balance else "bg-blue-50 text-blue-700 border-blue-100"
     balance_warning_html = f"""
     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold {balance_class}">
