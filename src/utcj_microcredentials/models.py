@@ -45,3 +45,8 @@ class IssueResponse(BaseModel):
     pdf_url: str
     issuer_profile_url: str
     issued_json: dict[str, Any]
+
+
+class User(BaseModel):
+    username: str
+    role: str

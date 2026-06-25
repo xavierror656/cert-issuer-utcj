@@ -100,7 +100,7 @@ def main() -> None:
         issued, tx_id = issue_with_cert_issuer(unsigned, request.chain or settings.default_chain, settings)
         certificate_id = issued["credentialSubject"]["certificateId"]
         svg = render_certificate_svg(issued, settings, tx_id)
-        pdf = render_certificate_pdf(issued, settings, tx_id)
+        pdf = render_certificate_pdf(issued, settings, tx_id, chain=request.chain or settings.default_chain)
         storage.save_certificate(certificate_id, issued, payload, svg, pdf, {"chain": request.chain, "transaction_id": tx_id})
         suffix = "vision" if "vision" in name else "ai-manufactura"
         save_json(examples_dir / f"issued-certificate-{suffix}.json", issued)

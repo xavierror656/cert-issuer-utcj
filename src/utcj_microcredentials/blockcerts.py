@@ -12,7 +12,11 @@ from .config import Settings
 from .models import IssueRequest
 from .rendering import build_display_html
 
+import threading
+
 logger = logging.getLogger(__name__)
+
+issuance_lock = threading.Lock()
 
 
 class IssueError(RuntimeError):
@@ -72,29 +76,39 @@ def build_unsigned_credential(request: IssueRequest, settings: Settings) -> dict
     }
     credential["display"] = {
         "contentMediaType": "text/html",
-        "content": build_display_html(certificate_url, visual_url, credential),
+        "content": build_display_html(certificate_url, visual_url, credential, settings),
     }
     return credential
 
 
 def issue_with_cert_issuer(unsigned_credential: dict[str, Any], chain_name: str, settings: Settings) -> tuple[dict[str, Any], str]:
-    app_config = settings.build_cert_issuer_config(chain_name)
-    issuer_config.CONFIG = app_config
-    if app_config.chain.is_ethereum_type():
-        from cert_issuer.blockchain_handlers import ethereum as blockchain_module
-    else:
-        from cert_issuer.blockchain_handlers import bitcoin as blockchain_module
+    issued_list, tx_id = issue_batch_with_cert_issuer([unsigned_credential], chain_name, settings)
+    return issued_list[0], tx_id
 
-    certificate_batch_handler, transaction_handler, _ = blockchain_module.instantiate_blockchain_handlers(app_config, file_mode=False)
-    certificate_batch_handler.set_certificates_in_batch([unsigned_credential])
-    try:
-        transaction_handler.ensure_balance()
-        tx_id = Issuer(certificate_batch_handler, transaction_handler, app_config.max_retry).issue(app_config.chain)
-    except Exception as exc:  # pragma: no cover - real network/runtime path
-        logger.exception("Issuance failed")
-        raise IssueError(str(exc)) from exc
-    issued_certificate = certificate_batch_handler.proof[0]
-    return issued_certificate, tx_id
+
+def issue_batch_with_cert_issuer(unsigned_credentials: list[dict[str, Any]], chain_name: str, settings: Settings) -> tuple[list[dict[str, Any]], str]:
+    with issuance_lock:
+        app_config = settings.build_cert_issuer_config(chain_name)
+        issuer_config.CONFIG = app_config
+        if app_config.chain.is_ethereum_type():
+            from cert_issuer.blockchain_handlers import ethereum as blockchain_module
+        else:
+            from cert_issuer.blockchain_handlers import bitcoin as blockchain_module
+
+        certificate_batch_handler, transaction_handler, _ = blockchain_module.instantiate_blockchain_handlers(app_config, file_mode=False)
+        certificate_batch_handler.set_certificates_in_batch(unsigned_credentials)
+        try:
+            transaction_handler.ensure_balance()
+            tx_id = Issuer(certificate_batch_handler, transaction_handler, app_config.max_retry).issue(app_config.chain)
+        except Exception as exc:  # pragma: no cover - real network/runtime path
+            logger.exception("Issuance failed")
+            raise IssueError(str(exc)) from exc
+            
+        issued_certificates = []
+        for i in range(len(unsigned_credentials)):
+            issued_certificates.append(certificate_batch_handler.proof[i])
+            
+        return issued_certificates, tx_id
 
 
 def issuance_metadata(chain_name: str, transaction_id: str) -> dict[str, Any]:

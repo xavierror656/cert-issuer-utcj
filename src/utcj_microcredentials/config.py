@@ -4,6 +4,7 @@ import base64
 import json
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +44,57 @@ def _derive_ethereum_material(private_key_hex: str) -> dict[str, Any]:
     }
 
 
+@lru_cache(maxsize=16)
+def get_issuer_crypto(
+    private_key_file: Path | None,
+    private_key_format: str,
+    issuing_address: str | None,
+    verification_method: str | None,
+    issuer_assertion_jwk_json: str | None,
+    issuer_profile_url: str
+) -> dict[str, Any]:
+    private_key = None
+    if private_key_file and private_key_file.exists():
+        private_key = private_key_file.read_text(encoding="utf-8").strip()
+
+    explicit_jwk = None
+    if issuer_assertion_jwk_json:
+        explicit_jwk = json.loads(issuer_assertion_jwk_json)
+
+    if private_key_format == "ethereum_hex" and private_key:
+        material = _derive_ethereum_material(private_key)
+        address = issuing_address or material["address"]
+        vm = verification_method or f"{issuer_profile_url}#key-1"
+        return {
+            "address": address,
+            "verification_method": vm,
+            "public_key": f"ecdsa-koblitz-pubkey:{address}",
+            "verification_method_entry": {
+                "id": vm,
+                "type": "EcdsaSecp256k1VerificationKey2019",
+                "controller": issuer_profile_url,
+                "publicKeyJwk": material["jwk"],
+            },
+        }
+
+    address = issuing_address or "mockchain:utcj"
+    vm = verification_method or f"{issuer_profile_url}#key-1"
+    verification_method_entry = None
+    if explicit_jwk:
+        verification_method_entry = {
+            "id": vm,
+            "type": "EcdsaSecp256k1VerificationKey2019",
+            "controller": issuer_profile_url,
+            "publicKeyJwk": explicit_jwk,
+        }
+    return {
+        "address": address,
+        "verification_method": vm,
+        "public_key": f"ecdsa-koblitz-pubkey:{address}",
+        "verification_method_entry": verification_method_entry,
+    }
+
+
 @dataclass(slots=True)
 class Settings:
     app_name: str
@@ -57,6 +109,8 @@ class Settings:
     ethereum_rpc_url: str | None
     goerli_rpc_url: str | None
     sepolia_rpc_url: str | None
+    polygon_rpc_url: str | None
+    arbitrum_rpc_url: str | None
     blockcypher_api_token: str | None
     bitcoind: bool
     nonce: int
@@ -88,6 +142,9 @@ class Settings:
     issuer_assertion_jwk_json: str | None
     did_web_enabled: bool
     did_web_base: str | None
+    admin_api_key: str | None
+    issuer_api_key: str | None
+    auditor_api_key: str | None
 
     @classmethod
     def load(cls) -> "Settings":
@@ -112,6 +169,8 @@ class Settings:
             ethereum_rpc_url=os.getenv("ETHEREUM_RPC_URL"),
             goerli_rpc_url=os.getenv("GOERLI_RPC_URL"),
             sepolia_rpc_url=os.getenv("SEPOLIA_RPC_URL"),
+            polygon_rpc_url=os.getenv("POLYGON_RPC_URL"),
+            arbitrum_rpc_url=os.getenv("ARBITRUM_RPC_URL"),
             blockcypher_api_token=os.getenv("BLOCKCYPHER_API_TOKEN"),
             bitcoind=_env_bool("BITCOIND", False),
             nonce=int(os.getenv("NONCE", "0")),
@@ -146,6 +205,9 @@ class Settings:
             issuer_assertion_jwk_json=os.getenv("ISSUER_ASSERTION_JWK_JSON"),
             did_web_enabled=_env_bool("DID_WEB_ENABLED", False),
             did_web_base=os.getenv("DID_WEB_BASE"),
+            admin_api_key=os.getenv("ADMIN_API_KEY"),
+            issuer_api_key=os.getenv("ISSUER_API_KEY"),
+            auditor_api_key=os.getenv("AUDITOR_API_KEY"),
         )
 
     def ensure_directories(self) -> None:
@@ -190,43 +252,14 @@ class Settings:
         return self.issuer_private_key_file.read_text(encoding="utf-8").strip()
 
     def issuer_crypto(self) -> dict[str, Any]:
-        private_key = self._read_private_key()
-        explicit_jwk = None
-        if self.issuer_assertion_jwk_json:
-            explicit_jwk = json.loads(self.issuer_assertion_jwk_json)
-
-        if self.issuer_private_key_format == "ethereum_hex" and private_key:
-            material = _derive_ethereum_material(private_key)
-            address = self.issuing_address or material["address"]
-            verification_method = self.verification_method or f"{self.issuer_profile_url}#key-1"
-            return {
-                "address": address,
-                "verification_method": verification_method,
-                "public_key": f"ecdsa-koblitz-pubkey:{address}",
-                "verification_method_entry": {
-                    "id": verification_method,
-                    "type": "EcdsaSecp256k1VerificationKey2019",
-                    "controller": self.issuer_profile_url,
-                    "publicKeyJwk": material["jwk"],
-                },
-            }
-
-        address = self.issuing_address or "mockchain:utcj"
-        verification_method = self.verification_method or f"{self.issuer_profile_url}#key-1"
-        verification_method_entry = None
-        if explicit_jwk:
-            verification_method_entry = {
-                "id": verification_method,
-                "type": "EcdsaSecp256k1VerificationKey2019",
-                "controller": self.issuer_profile_url,
-                "publicKeyJwk": explicit_jwk,
-            }
-        return {
-            "address": address,
-            "verification_method": verification_method,
-            "public_key": f"ecdsa-koblitz-pubkey:{address}",
-            "verification_method_entry": verification_method_entry,
-        }
+        return get_issuer_crypto(
+            self.issuer_private_key_file,
+            self.issuer_private_key_format,
+            self.issuing_address,
+            self.verification_method,
+            self.issuer_assertion_jwk_json,
+            self.issuer_profile_url,
+        )
 
     def issuer_profile(self) -> dict[str, Any]:
         crypto = self.issuer_crypto()
@@ -270,7 +303,24 @@ class Settings:
         }
 
     def build_cert_issuer_config(self, chain_name: str) -> Any:
-        chain = Chain.parse_from_chain(chain_name)
+        # Resolve dynamic/L2 network mapping
+        actual_chain_name = chain_name
+        rpc_override = None
+        
+        if chain_name == "polygon_mainnet":
+            actual_chain_name = "ethereum_mainnet"
+            rpc_override = self.polygon_rpc_url
+        elif chain_name in ("polygon_amoy", "polygon_testnet"):
+            actual_chain_name = "ethereum_sepolia"
+            rpc_override = self.polygon_rpc_url
+        elif chain_name == "arbitrum_mainnet":
+            actual_chain_name = "ethereum_mainnet"
+            rpc_override = self.arbitrum_rpc_url
+        elif chain_name in ("arbitrum_sepolia", "arbitrum_testnet"):
+            actual_chain_name = "ethereum_sepolia"
+            rpc_override = self.arbitrum_rpc_url
+
+        chain = Chain.parse_from_chain(actual_chain_name)
         if chain.is_bitcoin_type():
             bitcoin.SelectParams(chain_to_bitcoin_network(chain))
         crypto = self.issuer_crypto()
@@ -294,9 +344,9 @@ class Settings:
         config.gas_price_dynamic = self.gas_price_dynamic
         config.gas_limit = self.gas_limit
         config.etherscan_api_token = self.etherscan_api_token
-        config.ethereum_rpc_url = self.ethereum_rpc_url
+        config.ethereum_rpc_url = rpc_override or self.ethereum_rpc_url
         config.goerli_rpc_url = self.goerli_rpc_url
-        config.sepolia_rpc_url = self.sepolia_rpc_url
+        config.sepolia_rpc_url = rpc_override or self.sepolia_rpc_url
         config.blockcypher_api_token = self.blockcypher_api_token
         config.bitcoind = self.bitcoind
         config.dust_threshold = self.dust_threshold

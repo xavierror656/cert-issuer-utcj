@@ -23,18 +23,18 @@
     },
     "https://w3id.org/security/data-integrity/v2"
   ],
-  "id": "urn:uuid:a71c5ea4-6688-40f5-a7c8-5bfd4e81589d",
+  "id": "urn:uuid:a5c8b6b5-b750-4937-8daf-5234e1130105",
   "type": [
     "VerifiableCredential",
     "BlockcertsCredential"
   ],
-  "issuer": "http://localhost:8000/issuer-profile",
+  "issuer": "https://utcjmicro.javierflores.software/issuer-profile",
   "validFrom": "2026-04-20T00:00:00Z",
   "name": "Microcredencial en Vision por Computadora Industrial",
   "description": "Acredita competencias en deteccion de objetos, inspeccion visual automatizada, entrenamiento de modelos YOLO y despliegue edge AI en lineas de produccion.",
   "credentialSubject": {
-    "id": "urn:uuid:6e44e7ce-83c1-4555-87c6-b008ecfce078",
-    "certificateId": "a71c5ea4-6688-40f5-a7c8-5bfd4e81589d",
+    "id": "urn:uuid:fe91e749-1851-41bb-9ea0-a39698ccb726",
+    "certificateId": "a5c8b6b5-b750-4937-8daf-5234e1130105",
     "givenName": "Sofia Fernanda",
     "familyName": "Ramirez Ortega",
     "name": "Sofia Fernanda Ramirez Ortega",
@@ -56,15 +56,15 @@
   },
   "display": {
     "contentMediaType": "text/html",
-    "content": "<div style=\"max-width:900px;margin:0 auto;padding:28px;border-radius:24px;background:linear-gradient(135deg,#F7FBFA,#E8F1EE);border:1px solid #d7e6e1;color:#1F2937;font-family:Georgia,serif;\">\n  <div style=\"font:700 13px Arial,sans-serif;letter-spacing:0.18em;text-transform:uppercase;color:#0F6A52;\">UTCJ | Microcredenciales verificables</div>\n  <h1 style=\"margin:14px 0 6px;font-size:34px;line-height:1.1;color:#0F3E4A;\">Microcredencial en Vision por Computadora Industrial</h1>\n  <div style=\"font-size:24px;color:#1F2937;margin-bottom:14px;\">Sofia Fernanda Ramirez Ortega</div>\n  <p style=\"font:16px/1.5 Arial,sans-serif;margin:0 0 16px;\">Emision institucional UTCJ para <strong>Diplomado de IA Aplicada a Manufactura Inteligente</strong>.</p>\n  <div><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Computer Vision</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">YOLO</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Deep Learning</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Edge AI</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Inspeccion industrial automatizada</span></div>\n  <p style=\"font:14px/1.5 Arial,sans-serif;margin-top:18px;\">Artefacto principal verificable: JSON Blockcerts. Representacion visual: <a href=\"http://localhost:8000/certificate/a71c5ea4-6688-40f5-a7c8-5bfd4e81589d/visual.svg\">SVG institucional</a>. Descarga: <a href=\"http://localhost:8000/certificate/a71c5ea4-6688-40f5-a7c8-5bfd4e81589d\">JSON emitido</a>.</p>\n</div>"
+    "content": "<div style=\"max-width:900px;margin:0 auto;padding:28px;border-radius:24px;background:linear-gradient(135deg,#FFFFFF,#E8F1EE);border:1px solid #8FA3AD;color:#1F2937;font-family:Georgia,serif;\">\n  <div style=\"font:700 13px Arial,sans-serif;letter-spacing:0.18em;text-transform:uppercase;color:#0F6A52;\">UTCJ | Microcredenciales verificables</div>\n  <h1 style=\"margin:14px 0 6px;font-size:34px;line-height:1.1;color:#0F3E4A;\">Microcredencial en Vision por Computadora Industrial</h1>\n  <div style=\"font-size:24px;color:#1F2937;margin-bottom:14px;\">Sofia Fernanda Ramirez Ortega</div>\n  <p style=\"font:16px/1.5 Arial,sans-serif;margin:0 0 16px;\">Emision institucional UTCJ para <strong>Diplomado de IA Aplicada a Manufactura Inteligente</strong>.</p>\n  <div><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Computer Vision</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">YOLO</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Deep Learning</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Edge AI</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Inspeccion industrial automatizada</span></div>\n  <p style=\"font:14px/1.5 Arial,sans-serif;margin-top:18px;\">Artefacto principal verificable: JSON Blockcerts. Representacion visual: <a href=\"https://utcjmicro.javierflores.software/certificate/a5c8b6b5-b750-4937-8daf-5234e1130105/visual.svg\">SVG institucional</a>. Descarga: <a href=\"https://utcjmicro.javierflores.software/certificate/a5c8b6b5-b750-4937-8daf-5234e1130105\">JSON emitido</a>.</p>\n</div>"
   },
   "proof": {
-    "id": "urn:uuid:8729da78-6be6-4c1f-968b-eb9f64d25ada",
+    "id": "urn:uuid:dafbac0b-6c12-4c7e-94c8-152cbcd51244",
     "type": "DataIntegrityProof",
     "cryptosuite": "merkle-proof-2019",
     "proofPurpose": "assertionMethod",
-    "created": "2026-03-07T03:59:06Z",
-    "proofValue": "zEuZQLZTYrdsDv2GsTqMBnDjKeDVV4LF8jvkHzYPKZTHWeMDJNZ7KR7eizZAFN2GdsmbUowXRdy9ng9yhqRWZQbU6XfmAGDrAVpATQgjv9RPMSttiDrespBTpkcuf4pLwAQ743DkSMMBfLwNdYt7oY3At6L5EukPhBG58t1kr97sSb6XEFwtP2aNptP4v5qkeEdamZpzS9cB6AMY3w8nwVCBpJuNqJWRqwDhQWeXUQ6Yt71EqcPHJrmd8f6PqpyVn1SxdGdoCBGd4ZdSxeULx5aChrLdSKscERXqgfwAW4gq1Ng",
-    "verificationMethod": "http://localhost:8000/issuer-profile#key-1"
+    "created": "2026-06-23T22:37:52Z",
+    "proofValue": "zEuZQLZTYrdsDv2dBVfro4WpUcZn29A58kZdjFJtJsJFeUYAqSbTmb8Un8LKh4XjjC1S5rvrRN4RY21jRVavJ8NDd5FHzpEZGsPxBGyzdYWbbTXGi6DK4UxdTieU7LVtHvTqgyra9TvMNhQqiNoZm8U7vqMwrhz2Qke8EBoKbs3sEkXFZN2arBwLiDVgJLoPNPL7PCoBPj5ajGHyzKinSUrZhiwrAj7H57QaU6fQDM8h8EMDHbSfZQgpQ9KJsGxzNWLcrhDhbkZpNnHYnmA2a2huu9B8RCZ68iC9ZthYyyzwCo2",
+    "verificationMethod": "https://utcjmicro.javierflores.software/issuer-profile#key-1"
   }
 }

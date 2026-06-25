@@ -23,18 +23,18 @@
     },
     "https://w3id.org/security/data-integrity/v2"
   ],
-  "id": "urn:uuid:207299b9-5b7f-48dc-beee-24c647cfd651",
+  "id": "urn:uuid:e24d7970-422a-4146-a0bf-618a2833b840",
   "type": [
     "VerifiableCredential",
     "BlockcertsCredential"
   ],
-  "issuer": "http://localhost:8000/issuer-profile",
+  "issuer": "https://utcjmicro.javierflores.software/issuer-profile",
   "validFrom": "2026-04-15T00:00:00Z",
   "name": "Microcredencial en Inteligencia Artificial Aplicada a Manufactura Inteligente",
   "description": "Acredita competencias en aprendizaje automatico, analitica industrial, mantenimiento predictivo y despliegue de soluciones de IA para entornos de manufactura inteligente.",
   "credentialSubject": {
-    "id": "urn:uuid:e3550ecb-a236-430f-92c9-67ec1683bee7",
-    "certificateId": "207299b9-5b7f-48dc-beee-24c647cfd651",
+    "id": "urn:uuid:4d7255d1-17d0-40b9-a92d-5bd2845eb541",
+    "certificateId": "e24d7970-422a-4146-a0bf-618a2833b840",
     "givenName": "Javier Alejandro",
     "familyName": "Flores Flores",
     "name": "Javier Alejandro Flores Flores",
@@ -56,15 +56,15 @@
   },
   "display": {
     "contentMediaType": "text/html",
-    "content": "<div style=\"max-width:900px;margin:0 auto;padding:28px;border-radius:24px;background:linear-gradient(135deg,#F7FBFA,#E8F1EE);border:1px solid #d7e6e1;color:#1F2937;font-family:Georgia,serif;\">\n  <div style=\"font:700 13px Arial,sans-serif;letter-spacing:0.18em;text-transform:uppercase;color:#0F6A52;\">UTCJ | Microcredenciales verificables</div>\n  <h1 style=\"margin:14px 0 6px;font-size:34px;line-height:1.1;color:#0F3E4A;\">Microcredencial en Inteligencia Artificial Aplicada a Manufactura Inteligente</h1>\n  <div style=\"font-size:24px;color:#1F2937;margin-bottom:14px;\">Javier Alejandro Flores Flores</div>\n  <p style=\"font:16px/1.5 Arial,sans-serif;margin:0 0 16px;\">Emision institucional UTCJ para <strong>Diplomado de IA Aplicada a Manufactura Inteligente</strong>.</p>\n  <div><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Machine Learning industrial</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Mantenimiento predictivo</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Python para analitica</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Modelado de datos</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Automatizacion inteligente</span></div>\n  <p style=\"font:14px/1.5 Arial,sans-serif;margin-top:18px;\">Artefacto principal verificable: JSON Blockcerts. Representacion visual: <a href=\"http://localhost:8000/certificate/207299b9-5b7f-48dc-beee-24c647cfd651/visual.svg\">SVG institucional</a>. Descarga: <a href=\"http://localhost:8000/certificate/207299b9-5b7f-48dc-beee-24c647cfd651\">JSON emitido</a>.</p>\n</div>"
+    "content": "<div style=\"max-width:900px;margin:0 auto;padding:28px;border-radius:24px;background:linear-gradient(135deg,#FFFFFF,#E8F1EE);border:1px solid #8FA3AD;color:#1F2937;font-family:Georgia,serif;\">\n  <div style=\"font:700 13px Arial,sans-serif;letter-spacing:0.18em;text-transform:uppercase;color:#0F6A52;\">UTCJ | Microcredenciales verificables</div>\n  <h1 style=\"margin:14px 0 6px;font-size:34px;line-height:1.1;color:#0F3E4A;\">Microcredencial en Inteligencia Artificial Aplicada a Manufactura Inteligente</h1>\n  <div style=\"font-size:24px;color:#1F2937;margin-bottom:14px;\">Javier Alejandro Flores Flores</div>\n  <p style=\"font:16px/1.5 Arial,sans-serif;margin:0 0 16px;\">Emision institucional UTCJ para <strong>Diplomado de IA Aplicada a Manufactura Inteligente</strong>.</p>\n  <div><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Machine Learning industrial</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Mantenimiento predictivo</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Python para analitica</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Modelado de datos</span><span style=\"display:inline-block;padding:6px 10px;margin:4px;border-radius:999px;background:#E8F1EE;color:#0F6A52;font:600 12px Arial,sans-serif;\">Automatizacion inteligente</span></div>\n  <p style=\"font:14px/1.5 Arial,sans-serif;margin-top:18px;\">Artefacto principal verificable: JSON Blockcerts. Representacion visual: <a href=\"https://utcjmicro.javierflores.software/certificate/e24d7970-422a-4146-a0bf-618a2833b840/visual.svg\">SVG institucional</a>. Descarga: <a href=\"https://utcjmicro.javierflores.software/certificate/e24d7970-422a-4146-a0bf-618a2833b840\">JSON emitido</a>.</p>\n</div>"
   },
   "proof": {
-    "id": "urn:uuid:fa627d55-f30d-4f29-a426-3779067d5803",
+    "id": "urn:uuid:b6c065c6-0fd2-490b-b9af-a44a4bee5a74",
     "type": "DataIntegrityProof",
     "cryptosuite": "merkle-proof-2019",
     "proofPurpose": "assertionMethod",
-    "created": "2026-03-07T03:59:06Z",
-    "proofValue": "zEuZQLZTYrdsDv2GXLwvxit1eCa3v8yrqdyzJAqYFYqTgmBnLwwT5QaABujrGMBhUWQnAR5jdyK2pZL1D5uPHRQbFnzCYALiVGgXcU1o2ntz2iQG8YTQ5QLg41L6ZzJyXVYpLFtd23H1BwBUNTyZoDcEPYzpnyRwoZ3NwjnKERjvwmGs7jP85oC4shYybQopdw5sDkDwhctEdh4fimcGK6P1E65CWFHw8mshMt3wjHSdL2rgdxP2eNVNKPQ9GkYboi9K48CJLVJqVqszJs5ywbpwqjysdHX6qMfNYADCU98Y1Dz",
-    "verificationMethod": "http://localhost:8000/issuer-profile#key-1"
+    "created": "2026-06-23T22:37:52Z",
+    "proofValue": "zEuZQLZTYrdsDv2cmA3ZQiGsBYUzDUJF9ts4AHSQXQTB3hXpvQiCR7h3aXvtCwvRk9BE8JEkXRzEygcdRKeVw5kEdsXDDH7851kSx4Ci1nCBbTfHpN8WVurMu36aGR4ig3V31xDhgjV86DKEJxFpnrRd5YBUvKKQbgMKzshdgjtL2i2Nba6dYG8mhPmqeYWbrNMo5zJVi14RgcBkRAy2KYffuPujda9SYvdbfGz1qtpQVrP3AxgUuJH3wc3CMKcBUg5hNW6xSjUZvZWYGwBvW4ZdtjTg8uPBp7qk1eBkd5fU7v8",
+    "verificationMethod": "https://utcjmicro.javierflores.software/issuer-profile#key-1"
   }
 }
