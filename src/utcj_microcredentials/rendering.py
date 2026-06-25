@@ -53,16 +53,26 @@ def render_certificate_svg(certificate: dict[str, Any], settings: Settings, tran
     subject = certificate["credentialSubject"]
     qr_uri = _qr_data_uri(settings.certificate_url(subject["certificateId"]), fill_color=palette["graphite"])
     
-    # Dynamic sizing for course title in SVG
-    title_name = certificate['name']
-    if len(title_name) > 60:
+    # Dynamic sizing and pure SVG wrapping for course title
+    title_lines = _wrap_text(certificate['name'], 38)
+    if len(certificate['name']) > 60:
         title_font_size = 28
-    elif len(title_name) > 40:
+        dy_offset = 34
+    elif len(certificate['name']) > 40:
         title_font_size = 36
-    elif len(title_name) > 25:
-        title_font_size = 46
+        dy_offset = 42
     else:
-        title_font_size = 54
+        title_font_size = 48
+        dy_offset = 54
+
+    title_tspans = []
+    if len(title_lines) == 1:
+        title_tspans.append(f'<tspan x="72" y="208">{title_lines[0]}</tspan>')
+    else:
+        title_tspans.append(f'<tspan x="72" y="190">{title_lines[0]}</tspan>')
+        for line in title_lines[1:2]: # limit to 2 lines
+            title_tspans.append(f'<tspan x="72" dy="{dy_offset}">{line}</tspan>')
+    title_svg_text = "\n  ".join(title_tspans)
 
     # Dynamic sizing for recipient name in SVG
     recipient_name = subject['name']
@@ -74,6 +84,24 @@ def render_certificate_svg(certificate: dict[str, Any], settings: Settings, tran
         recipient_font_size = 40
     else:
         recipient_font_size = 46
+
+    # Dynamic pure SVG wrapping for description
+    desc_lines = _wrap_text(certificate['description'], 75)
+    desc_tspans = []
+    if len(desc_lines) == 1:
+        desc_tspans.append(f'<tspan x="72" y="490">{desc_lines[0]}</tspan>')
+    elif len(desc_lines) == 2:
+        desc_tspans.append(f'<tspan x="72" y="480">{desc_lines[0]}</tspan>')
+        desc_tspans.append(f'<tspan x="72" dy="26">{desc_lines[1]}</tspan>')
+    elif len(desc_lines) == 3:
+        desc_tspans.append(f'<tspan x="72" y="470">{desc_lines[0]}</tspan>')
+        for line in desc_lines[1:3]:
+            desc_tspans.append(f'<tspan x="72" dy="26">{line}</tspan>')
+    else:
+        desc_tspans.append(f'<tspan x="72" y="460">{desc_lines[0]}</tspan>')
+        for line in desc_lines[1:4]:
+            desc_tspans.append(f'<tspan x="72" dy="26">{line}</tspan>')
+    desc_svg_text = "\n  ".join(desc_tspans)
 
     # Clean and restrict skills to prevent overflow in SVG box
     cleaned_skills = []
@@ -140,15 +168,15 @@ def render_certificate_svg(certificate: dict[str, Any], settings: Settings, tran
   <circle cx="1400" cy="130" r="66" fill="{palette["green"]}" fill-opacity="0.08"/>
   <circle cx="1480" cy="210" r="34" fill="{palette["gold"]}" fill-opacity="0.15"/>
   <text x="72" y="104" fill="{palette["green"]}" font-family="Roboto Slab, Georgia, serif" font-size="26" font-weight="700" letter-spacing="4">MICROCREDENCIALES VERIFICABLES UTCJ</text>
-  <foreignObject x="72" y="145" width="1100" height="100">
-    <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Roboto Slab', Georgia, serif; font-size:{title_font_size}px; font-weight:700; color:{palette['teal']}; line-height:1.2; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
-      {title_name}
-    </div>
-  </foreignObject>
+  <text fill="{palette["teal"]}" font-family="Roboto Slab, Georgia, serif" font-size="{title_font_size}" font-weight="700">
+    {title_svg_text}
+  </text>
   <text x="72" y="266" fill="{palette["silver"]}" font-family="Arial, sans-serif" font-size="24">Credencial academica verificable emitida por {settings.issuer_name}</text>
   <text x="72" y="362" fill="{palette["graphite"]}" font-family="Georgia, serif" font-size="24">Reconoce a</text>
   <text x="72" y="428" fill="{palette["graphite"]}" font-family="Georgia, serif" font-size="{recipient_font_size}" font-weight="700">{recipient_name}</text>
-  <foreignObject x="72" y="460" width="940" height="120"><div xmlns="http://www.w3.org/1999/xhtml" style="font:18px Arial,sans-serif;color:{palette["graphite"]};line-height:1.55;\">{certificate['description']}</div></foreignObject>
+  <text fill="{palette["graphite"]}" font-family="Arial, sans-serif" font-size="18">
+    {desc_svg_text}
+  </text>
   <rect x="68" y="620" width="560" height="176" rx="24" fill="{palette["white"]}" stroke="{palette["silver"]}"/>
   <text x="92" y="668" fill="{palette["green"]}" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">COMPETENCIAS ACREDITADAS</text>
   <text x="92" y="675" fill="{palette["graphite"]}" font-family="Arial, sans-serif" font-size="14">{skills}</text>
