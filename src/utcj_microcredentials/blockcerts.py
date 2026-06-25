@@ -24,12 +24,19 @@ class IssueError(RuntimeError):
 
 
 def build_unsigned_credential(request: IssueRequest, settings: Settings) -> dict[str, Any]:
+    import hashlib
+    import secrets
+    
     certificate_id = str(uuid.uuid4())
     issue_date = request.credential.issue_date.isoformat()
     issued_at = f"{issue_date}T00:00:00Z"
     subject_name = f"{request.recipient.given_name} {request.recipient.family_name}".strip()
     certificate_url = settings.certificate_url(certificate_id)
     visual_url = settings.certificate_visual_url(certificate_id)
+    
+    salt = secrets.token_hex(16)
+    hashed_email = hashlib.sha256((request.recipient.email + salt).encode("utf-8")).hexdigest()
+    
     credential = {
         "@context": [
             "https://www.w3.org/ns/credentials/v2",
@@ -48,6 +55,7 @@ def build_unsigned_credential(request: IssueRequest, settings: Settings) -> dict
                 "programType": "https://microcredenciales.utcj.edu.mx/ns#programType",
                 "issueDate": "https://microcredenciales.utcj.edu.mx/ns#issueDate",
                 "evidenceUrl": "https://microcredenciales.utcj.edu.mx/ns#evidenceUrl",
+                "salt": "https://microcredenciales.utcj.edu.mx/ns#salt",
             },
             "https://w3id.org/blockcerts/v3.2",
         ],
@@ -63,7 +71,8 @@ def build_unsigned_credential(request: IssueRequest, settings: Settings) -> dict
             "givenName": request.recipient.given_name,
             "familyName": request.recipient.family_name,
             "name": subject_name,
-            "email": request.recipient.email,
+            "email": f"sha256${hashed_email}",
+            "salt": salt,
             "issueDate": issue_date,
             "courseName": request.credential.course_name,
             "hours": request.credential.hours,
