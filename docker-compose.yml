@@ -30,6 +30,7 @@ services:
       - ./data/utcj_microcredentials:/app/data/utcj_microcredentials
       - ./assets:/app/assets
       - ./examples:/app/examples
+      - /home/ubuntu/secrets:/home/ubuntu/secrets:ro
 
 volumes:
   pgdata:
