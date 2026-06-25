@@ -52,9 +52,40 @@ def render_certificate_svg(certificate: dict[str, Any], settings: Settings, tran
         palette = get_palette(settings)
     subject = certificate["credentialSubject"]
     qr_uri = _qr_data_uri(settings.certificate_url(subject["certificateId"]), fill_color=palette["graphite"])
+    
+    # Dynamic sizing for course title in SVG
+    title_name = certificate['name']
+    if len(title_name) > 60:
+        title_font_size = 28
+    elif len(title_name) > 40:
+        title_font_size = 36
+    elif len(title_name) > 25:
+        title_font_size = 46
+    else:
+        title_font_size = 54
+
+    # Dynamic sizing for recipient name in SVG
+    recipient_name = subject['name']
+    if len(recipient_name) > 40:
+        recipient_font_size = 28
+    elif len(recipient_name) > 30:
+        recipient_font_size = 34
+    elif len(recipient_name) > 20:
+        recipient_font_size = 40
+    else:
+        recipient_font_size = 46
+
+    # Clean and restrict skills to prevent overflow in SVG box
+    cleaned_skills = []
+    for skill in subject["skills"][:6]:
+        if len(skill) > 35:
+            cleaned_skills.append(skill[:32] + "...")
+        else:
+            cleaned_skills.append(skill)
     skills = "\n".join(
-        f'<tspan x="72" dy="28">- {skill}</tspan>' for skill in subject["skills"][:6]
+        f'<tspan x="92" dy="18">- {skill}</tspan>' for skill in cleaned_skills
     )
+
     logo_href = ""
     if settings.issuer_logo_path.exists():
         logo_bytes = settings.issuer_logo_path.read_bytes()
@@ -109,14 +140,18 @@ def render_certificate_svg(certificate: dict[str, Any], settings: Settings, tran
   <circle cx="1400" cy="130" r="66" fill="{palette["green"]}" fill-opacity="0.08"/>
   <circle cx="1480" cy="210" r="34" fill="{palette["gold"]}" fill-opacity="0.15"/>
   <text x="72" y="104" fill="{palette["green"]}" font-family="Roboto Slab, Georgia, serif" font-size="26" font-weight="700" letter-spacing="4">MICROCREDENCIALES VERIFICABLES UTCJ</text>
-  <text x="72" y="208" fill="{palette["teal"]}" font-family="Roboto Slab, Georgia, serif" font-size="56" font-weight="700">{certificate['name']}</text>
+  <foreignObject x="72" y="145" width="1100" height="100">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Roboto Slab', Georgia, serif; font-size:{title_font_size}px; font-weight:700; color:{palette['teal']}; line-height:1.2; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
+      {title_name}
+    </div>
+  </foreignObject>
   <text x="72" y="266" fill="{palette["silver"]}" font-family="Arial, sans-serif" font-size="24">Credencial academica verificable emitida por {settings.issuer_name}</text>
   <text x="72" y="362" fill="{palette["graphite"]}" font-family="Georgia, serif" font-size="24">Reconoce a</text>
-  <text x="72" y="428" fill="{palette["graphite"]}" font-family="Georgia, serif" font-size="46" font-weight="700">{subject['name']}</text>
+  <text x="72" y="428" fill="{palette["graphite"]}" font-family="Georgia, serif" font-size="{recipient_font_size}" font-weight="700">{recipient_name}</text>
   <foreignObject x="72" y="460" width="940" height="120"><div xmlns="http://www.w3.org/1999/xhtml" style="font:18px Arial,sans-serif;color:{palette["graphite"]};line-height:1.55;\">{certificate['description']}</div></foreignObject>
   <rect x="68" y="620" width="560" height="176" rx="24" fill="{palette["white"]}" stroke="{palette["silver"]}"/>
   <text x="92" y="668" fill="{palette["green"]}" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">COMPETENCIAS ACREDITADAS</text>
-  <text x="72" y="696" fill="{palette["graphite"]}" font-family="Arial, sans-serif" font-size="24">{skills}</text>
+  <text x="92" y="675" fill="{palette["graphite"]}" font-family="Arial, sans-serif" font-size="14">{skills}</text>
 
   <!-- Firmas y Sello -->
   <line x1="660" y1="710" x2="820" y2="710" stroke="{palette["silver"]}" stroke-width="2"/>
@@ -207,16 +242,23 @@ def render_certificate_pdf(certificate: dict[str, Any], settings: Settings, tran
     c.setFillColor(HexColor(PALETTE["graphite"]))
     c.drawCentredString(width / 2, height - 180, "Otorga la presente credencial de competencias a:")
 
-    # 6. Recipient Name
-    c.setFont("Helvetica-Bold", 26)
+    # 6. Recipient Name with dynamic scaling
+    recipient_name = subject["name"]
+    if len(recipient_name) > 40:
+        recipient_font_size = 18
+    elif len(recipient_name) > 30:
+        recipient_font_size = 22
+    else:
+        recipient_font_size = 26
+    c.setFont("Helvetica-Bold", recipient_font_size)
     c.setFillColor(HexColor(PALETTE["teal"]))
-    c.drawCentredString(width / 2, height - 215, subject["name"])
+    c.drawCentredString(width / 2, height - 215, recipient_name)
 
     c.setFont("Helvetica-Oblique", 11)
     c.setFillColor(HexColor(PALETTE["graphite"]))
     c.drawCentredString(width / 2, height - 240, "Por haber acreditado satisfactoriamente los conocimientos del programa académico:")
 
-    # 7. Credential Title (Wrapped and Centered)
+    # 7. Credential Title (Wrapped, Centered and Dynamic Font Size)
     title_style = ParagraphStyle(
         name="CertTitleStyle",
         fontName="Helvetica-Bold",
@@ -225,34 +267,52 @@ def render_certificate_pdf(certificate: dict[str, Any], settings: Settings, tran
         textColor=HexColor(PALETTE["green_deep"]),
         alignment=1 # Centered
     )
-    title_p = Paragraph(certificate["name"], title_style)
-    title_p.wrapOn(c, width - 200, height)
-    title_p.drawOn(c, 100, height - 280)
+    title_name = certificate["name"]
+    if len(title_name) > 60:
+        title_style.fontSize = 11
+        title_style.leading = 14
+    elif len(title_name) > 40:
+        title_style.fontSize = 13
+        title_style.leading = 16
 
-    # 8. Description (Wrapped and Centered)
+    title_p = Paragraph(title_name, title_style)
+    title_w = width - 200
+    _, title_h = title_p.wrap(title_w, height)
+    title_y = height - 250 - title_h
+    title_p.drawOn(c, 100, title_y)
+
+    # 8. Description (Wrapped and Centered dynamically relative to title)
     desc_style = ParagraphStyle(
         name="CertDescStyle",
         fontName="Helvetica",
-        fontSize=11,
-        leading=15,
+        fontSize=10.5,
+        leading=14,
         textColor=HexColor(PALETTE["graphite"]),
         alignment=1 # Centered
     )
     desc_p = Paragraph(certificate["description"], desc_style)
-    desc_p.wrapOn(c, width - 240, height)
-    desc_y = height - 295 - desc_p.height
+    desc_w = width - 240
+    _, desc_h = desc_p.wrap(desc_w, height)
+    desc_y = title_y - 15 - desc_h
     desc_p.drawOn(c, 120, desc_y)
 
     # 9. Competencies / Habilidades Acreditadas
-    skills_y = desc_y - 25
+    skills_y = desc_y - 22
     c.setFont("Helvetica-Bold", 10)
     c.setFillColor(HexColor(PALETTE["gold"]))
     c.drawCentredString(width / 2, skills_y, "COMPETENCIAS ACREDITADAS")
     
-    skills_str = "   •   ".join(subject["skills"][:6])
-    c.setFont("Helvetica", 10)
+    # Clean skills to prevent line overflow in PDF
+    cleaned_skills = []
+    for s in subject["skills"][:6]:
+        if len(s) > 30:
+            cleaned_skills.append(s[:27] + "...")
+        else:
+            cleaned_skills.append(s)
+    skills_str = "   •   ".join(cleaned_skills)
+    c.setFont("Helvetica", 9.5)
     c.setFillColor(HexColor(PALETTE["graphite"]))
-    c.drawCentredString(width / 2, skills_y - 18, skills_str)
+    c.drawCentredString(width / 2, skills_y - 16, skills_str)
 
     # 10. Signatures and Seal
     sig_y = 110
