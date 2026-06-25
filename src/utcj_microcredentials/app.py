@@ -1828,7 +1828,12 @@ def admin_logout(request: Request) -> Response:
 
 def get_wallet_balance(settings: Any) -> float:
     import os
-    rpc_url = os.getenv("SEPOLIA_RPC_URL") or getattr(settings, "ethereum_rpc_url", None)
+    chain = getattr(settings, "default_chain", "ethereum_sepolia")
+    if chain == "ethereum_mainnet":
+        rpc_url = os.getenv("ETHEREUM_RPC_URL") or getattr(settings, "ethereum_rpc_url", None)
+    else:
+        rpc_url = os.getenv("SEPOLIA_RPC_URL") or getattr(settings, "sepolia_rpc_url", None) or getattr(settings, "ethereum_rpc_url", None)
+        
     address = getattr(settings, "issuing_address", None)
     if not rpc_url or not address:
         return 0.0
