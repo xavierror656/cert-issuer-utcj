@@ -1826,6 +1826,42 @@ def admin_logout(request: Request) -> Response:
     return response
 
 
+def get_wallet_balance(settings: Any) -> float:
+    import os
+    rpc_url = os.getenv("SEPOLIA_RPC_URL") or getattr(settings, "ethereum_rpc_url", None)
+    address = getattr(settings, "issuing_address", None)
+    if not rpc_url or not address:
+        return 0.0
+    
+    import json
+    import urllib.request
+    
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "eth_getBalance",
+        "params": [address, "latest"],
+        "id": 1
+    }
+    
+    try:
+        req = urllib.request.Request(
+            rpc_url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=5) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+            hex_balance = res_data.get("result")
+            if hex_balance:
+                wei = int(hex_balance, 16)
+                return wei / 10**18
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error checking wallet balance: {e}")
+    return 0.0
+
+
 @app.get("/admin/dashboard")
 def admin_dashboard(
     request: Request,
@@ -2037,6 +2073,19 @@ def admin_dashboard(
     
     palette = get_palette(settings)
     sample_cert_id = certs[0]["id"] if certs else ""
+    
+    # Check Sepolia/Ethereum Wallet Balance
+    balance = get_wallet_balance(settings)
+    is_low_balance = balance < 0.05
+    balance_class = "bg-red-50 text-red-700 border-red-100" if is_low_balance else "bg-blue-50 text-blue-700 border-blue-100"
+    balance_warning_html = f"""
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold {balance_class}">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+      </svg>
+      <span>Balance Wallet: {balance:.4f} ETH{" (FONDOS BAJOS)" if is_low_balance else ""}</span>
+    </span>
+    """
     
     import collections
     import json
@@ -3595,7 +3644,8 @@ def admin_dashboard(
             <h2 id="dashboard-title" class="font-outfit text-3xl font-extrabold text-slate-800 tracking-tight">Panel de Control</h2>
             <p id="dashboard-desc" class="text-sm text-slate-500 mt-1">Gestión de microcredenciales verificables y branding institucional</p>
           </div>
-          <div>
+          <div class="flex items-center gap-3">
+            {balance_warning_html}
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               Conexión Activa
