@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Security, Depends, status, Cookie, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response, HTMLResponse, RedirectResponse
+from fastapi.responses import JSONResponse, Response, HTMLResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import APIKeyHeader
 from dotenv import load_dotenv
@@ -146,6 +146,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+
+# Preact Frontend assets-dashboard
+frontend_dist_dir = Path("/app/frontend/dist")
+if not frontend_dist_dir.exists():
+    frontend_dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+if (frontend_dist_dir / "assets-dashboard").exists():
+    app.mount("/assets-dashboard", StaticFiles(directory=str(frontend_dist_dir / "assets-dashboard")), name="assets-dashboard")
+
+@app.get("/favicon.svg")
+def get_favicon() -> Response:
+    fav = frontend_dist_dir / "favicon.svg"
+    if fav.exists():
+        return FileResponse(fav)
+    raise HTTPException(status_code=404, detail="Not Found")
+
+@app.get("/icons.svg")
+def get_icons() -> Response:
+    icons_file = frontend_dist_dir / "icons.svg"
+    if icons_file.exists():
+        return FileResponse(icons_file)
+    raise HTTPException(status_code=404, detail="Not Found")
+
 
 
 @app.get("/health")
@@ -2152,15 +2175,111 @@ def preview_certificate_pdf(
     return Response(content=content, media_type="application/pdf")
 
 
+@app.get("/admin/dashboard/data")
+def admin_dashboard_data(
+    request: Request,
+    response: Response,
+    api_key: str | None = None
+) -> dict[str, Any]:
+    authorized, username = is_admin_session_valid(request, api_key)
+    if not authorized:
+        raise HTTPException(status_code=403, detail="Forbidden")
+        
+    csrf_token = request.cookies.get("admin_csrf")
+    if not csrf_token:
+        import secrets
+        csrf_token = secrets.token_hex(16)
+        response.set_cookie(
+            "admin_csrf",
+            csrf_token,
+            httponly=True,
+            samesite="lax",
+            secure=request.url.scheme == "https"
+        )
+        
+    from .db import list_certificates as db_list, get_revocation_list, list_api_keys, list_audit_logs
+    
+    certs = db_list(settings, limit=1000)
+    revoked_list = get_revocation_list(settings)
+    api_keys_list = list_api_keys(settings)
+    audit_logs = list_audit_logs(settings, limit=200)
+    
+    total_issued = len(certs)
+    total_revoked = len(revoked_list)
+    active_certs = total_issued - total_revoked
+    
+    palette = get_palette(settings)
+    balance = get_wallet_balance(settings)
+    
+    branding = {
+        "green": palette.get("green", "#0F6A52"),
+        "green_deep": palette.get("green_deep", "#0A4C3B"),
+        "teal": palette.get("teal", "#0F3E4A"),
+        "gold": palette.get("gold", "#B88A3B"),
+        "silver": palette.get("silver", "#8FA3AD"),
+        "default_chain": getattr(settings, "default_chain", "ethereum_sepolia")
+    }
+    
+    return {
+        "stats": {
+            "total_issued": total_issued,
+            "total_revoked": total_revoked,
+            "active_certs": active_certs
+        },
+        "certs": [
+            {
+                "id": c["id"],
+                "recipient": c["recipient_name"],
+                "recipient_name": c["recipient_name"],
+                "title": c["credential_title"],
+                "credential_title": c["credential_title"],
+                "course_name": c.get("course_name", "N/A"),
+                "hours": c.get("hours", 0),
+                "grade": c.get("grade", "N/A"),
+                "issued_at": c["issued_at"],
+                "revoked": bool(c["revoked"])
+            } for c in certs
+        ],
+        "api_keys": [
+            {
+                "id": k.get("id"),
+                "name": k["name"],
+                "role": k["role"],
+                "token": k["token"],
+                "created_at": k["created_at"],
+                "created_by": k["created_by"]
+            } for k in api_keys_list
+        ],
+        "audit_logs": [
+            {
+                "timestamp": log["timestamp"],
+                "action": log["action"],
+                "username": log["username"],
+                "ip_address": log["ip_address"],
+                "details": log["details"]
+            } for log in audit_logs
+        ],
+        "branding": branding,
+        "username": username,
+        "csrf_token": csrf_token,
+        "wallet_balance": balance
+    }
+
+
 @app.get("/admin/dashboard")
 def admin_dashboard(
     request: Request,
     api_key: str | None = None,
     error: str | None = None,
     toast: str | None = None
-) -> HTMLResponse:
+) -> Response:
     authorized, username = is_admin_session_valid(request, api_key)
     
+    if authorized:
+        index_html_path = frontend_dist_dir / "index.html"
+        if index_html_path.exists():
+            return FileResponse(index_html_path)
+            
     if not authorized:
         error_banner = ""
         if error == "invalid_credentials":

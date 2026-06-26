@@ -1,3 +1,12 @@
+# Stage 1: Build Preact App
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Runtime Environment
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -24,6 +33,9 @@ COPY docs ./docs
 COPY examples ./examples
 COPY scripts ./scripts
 COPY .env.example ./.env.example
+
+# Copy Preact dist folder from frontend-builder
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 RUN chmod +x /app/scripts/start-dev.sh /app/scripts/generate-samples.sh
 
