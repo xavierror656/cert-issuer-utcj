@@ -197,6 +197,21 @@ def init_db(settings: Any) -> None:
         import logging
         logging.getLogger(__name__).error(f"Migration error for blockchain_verified: {e}")
 
+    # 4g. Run migrations for ipfs_cid if needed
+    try:
+        if is_postgres():
+            rows = execute_read(settings, "SELECT column_name FROM information_schema.columns WHERE table_name = 'certificates' AND column_name = 'ipfs_cid'")
+            has_ipfs = len(rows) > 0
+        else:
+            rows = execute_read(settings, "PRAGMA table_info(certificates)")
+            has_ipfs = any(r["name"] == "ipfs_cid" for r in rows)
+            
+        if not has_ipfs:
+            execute_write(settings, "ALTER TABLE certificates ADD COLUMN ipfs_cid TEXT")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Migration error for ipfs_cid: {e}")
+
     # 4e. Migrate data from SQLite to PostgreSQL if running PostgreSQL
     try:
         migrate_data_sqlite_to_postgres(settings)
@@ -407,14 +422,15 @@ def add_certificate(
     issued_by: str,
     request_data: dict[str, Any],
     metadata: dict[str, Any],
+    ipfs_cid: str | None = None,
 ) -> None:
     execute_write(
         settings,
         """
         INSERT INTO certificates (
             id, recipient_name, credential_title, course_name, hours, grade,
-            chain, transaction_id, issued_at, issued_by, revoked, request_json, metadata_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+            chain, transaction_id, issued_at, issued_by, revoked, request_json, metadata_json, ipfs_cid
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
         ON CONFLICT (id) DO UPDATE SET
             recipient_name = EXCLUDED.recipient_name,
             credential_title = EXCLUDED.credential_title,
@@ -427,7 +443,8 @@ def add_certificate(
             issued_by = EXCLUDED.issued_by,
             revoked = EXCLUDED.revoked,
             request_json = EXCLUDED.request_json,
-            metadata_json = EXCLUDED.metadata_json
+            metadata_json = EXCLUDED.metadata_json,
+            ipfs_cid = EXCLUDED.ipfs_cid
     """,
         (
             cert_id,
@@ -442,8 +459,18 @@ def add_certificate(
             issued_by,
             json.dumps(request_data, ensure_ascii=False),
             json.dumps(metadata, ensure_ascii=False),
+            ipfs_cid,
         ),
     )
+
+
+def update_certificate_ipfs_cid(settings: Any, cert_id: str, ipfs_cid: str) -> None:
+    execute_write(
+        settings,
+        "UPDATE certificates SET ipfs_cid = ? WHERE id = ?",
+        (ipfs_cid, cert_id)
+    )
+
 
 
 def get_certificate(settings: Any, cert_id: str) -> dict[str, Any] | None:

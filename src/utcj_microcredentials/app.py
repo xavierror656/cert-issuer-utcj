@@ -284,7 +284,7 @@ def issue_credential(
     pdf = render_certificate_pdf(issued_certificate, settings, transaction_id, chain=chain_name)
     metadata = issuance_metadata(chain_name, transaction_id)
     metadata["issued_by"] = user.username
-    storage.save_certificate(certificate_id, issued_certificate, request.model_dump(mode="json"), svg, pdf, metadata)
+    ipfs_cid = storage.save_certificate(certificate_id, issued_certificate, request.model_dump(mode="json"), svg, pdf, metadata)
     
     # Save to SQLite database
     from .db import add_certificate as db_add
@@ -303,7 +303,8 @@ def issue_credential(
         issued_at=metadata["issued_at"],
         issued_by=user.username,
         request_data=request.model_dump(mode="json"),
-        metadata=metadata
+        metadata=metadata,
+        ipfs_cid=ipfs_cid
     )
     
     add_audit_log(settings, "issue_certificate", user.username, client_ip, f"Credencial emitida para: {rec_name} ({request.credential.title})")
@@ -1932,7 +1933,7 @@ def issue_batch_credentials(
         
         svg = render_certificate_svg(issued, settings, transaction_id)
         pdf = render_certificate_pdf(issued, settings, transaction_id, chain=chain_name)
-        storage.save_certificate(cert_id, issued, req_item.model_dump(mode="json"), svg, pdf, metadata)
+        ipfs_cid = storage.save_certificate(cert_id, issued, req_item.model_dump(mode="json"), svg, pdf, metadata)
         
         # Save to database
         from .db import add_certificate as db_add
@@ -1951,7 +1952,8 @@ def issue_batch_credentials(
             issued_at=metadata["issued_at"],
             issued_by=user.username,
             request_data=req_item.model_dump(mode="json"),
-            metadata=metadata
+            metadata=metadata,
+            ipfs_cid=ipfs_cid
         )
         
         items_response.append(BatchItemResponse(
