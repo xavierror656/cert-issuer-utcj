@@ -238,6 +238,9 @@ class Settings:
     def certificate_url(self, certificate_id: str) -> str:
         return f"{self.public_base_url}/certificate/{certificate_id}"
 
+    def certificate_render_url(self, certificate_id: str) -> str:
+        return f"{self.public_base_url}/render/{certificate_id}"
+
     def certificate_visual_url(self, certificate_id: str) -> str:
         return f"{self.public_base_url}/certificate/{certificate_id}/visual.svg"
 

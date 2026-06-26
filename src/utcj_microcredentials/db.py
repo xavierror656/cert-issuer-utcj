@@ -181,6 +181,22 @@ def init_db(settings: Any) -> None:
         import logging
         logging.getLogger(__name__).error(f"Migration error for api_keys: {e}")
 
+    # 4f. Run migrations for blockchain_verified and verification_cached_at if needed
+    try:
+        if is_postgres():
+            rows = execute_read(settings, "SELECT column_name FROM information_schema.columns WHERE table_name = 'certificates' AND column_name = 'blockchain_verified'")
+            has_verified = len(rows) > 0
+        else:
+            rows = execute_read(settings, "PRAGMA table_info(certificates)")
+            has_verified = any(r["name"] == "blockchain_verified" for r in rows)
+            
+        if not has_verified:
+            execute_write(settings, "ALTER TABLE certificates ADD COLUMN blockchain_verified INTEGER DEFAULT 0")
+            execute_write(settings, "ALTER TABLE certificates ADD COLUMN verification_cached_at TEXT")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Migration error for blockchain_verified: {e}")
+
     # 4e. Migrate data from SQLite to PostgreSQL if running PostgreSQL
     try:
         migrate_data_sqlite_to_postgres(settings)
@@ -485,6 +501,14 @@ def revoke_certificate(settings: Any, cert_id: str, reason: str, revoked_at: str
         (cert_id, revoked_at, reason),
     )
     return True
+
+
+def update_certificate_verification_cache(settings: Any, certificate_id: str, verified: int, cached_at: str) -> None:
+    execute_write(
+        settings,
+        "UPDATE certificates SET blockchain_verified = ?, verification_cached_at = ? WHERE id = ?",
+        (verified, cached_at, certificate_id)
+    )
 
 
 def get_revocation_list(settings: Any) -> list[dict[str, Any]]:

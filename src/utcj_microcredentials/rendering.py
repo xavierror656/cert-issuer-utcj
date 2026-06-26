@@ -51,7 +51,7 @@ def render_certificate_svg(certificate: dict[str, Any], settings: Settings, tran
     if palette is None:
         palette = get_palette(settings)
     subject = certificate["credentialSubject"]
-    qr_uri = _qr_data_uri(settings.certificate_url(subject["certificateId"]), fill_color=palette["graphite"])
+    qr_uri = _qr_data_uri(settings.certificate_render_url(subject["certificateId"]), fill_color=palette["graphite"])
     
     # Dynamic sizing and pure SVG wrapping for course title
     title_lines = _wrap_text(certificate['name'], 38)
@@ -403,7 +403,7 @@ def render_certificate_pdf(certificate: dict[str, Any], settings: Settings, tran
     c.drawCentredString(width - 200, sig_y - 15, "Validación Blockchain")
 
     # 11. QR Code and Technical Metadata Block
-    qr = qrcode.make(settings.certificate_url(subject["certificateId"]))
+    qr = qrcode.make(settings.certificate_render_url(subject["certificateId"]))
     qr_buffer = io.BytesIO()
     qr.save(qr_buffer, format="PNG")
     qr_buffer.seek(0)
