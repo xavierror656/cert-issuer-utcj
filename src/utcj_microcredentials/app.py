@@ -2351,7 +2351,7 @@ def admin_dashboard(
     certs = db_list(settings, limit=1000)
     revoked_list = get_revocation_list(settings)
     api_keys_list = list_api_keys(settings)
-    audit_logs = list_audit_logs(settings, limit=30)
+    audit_logs = list_audit_logs(settings, limit=200)
     
     csrf_token = request.cookies.get("admin_csrf")
     if not csrf_token:
@@ -2460,8 +2460,9 @@ def admin_dashboard(
             details = log["details"] or ""
             ip_info = f" ({log['ip_address']})" if log["ip_address"] else ""
             
+            details_escaped = details.replace('"', '&quot;')
             audit_logs_html += f"""
-            <li>
+            <li data-action="{log['action']}" data-username="{log['username']}" data-details="{details_escaped}">
               <div class="relative pb-6">
                 {line_html}
                 <div class="relative flex space-x-3">
@@ -2625,8 +2626,8 @@ def admin_dashboard(
         }}
 
         /* Glassmorphism Cards */
-        .bg-white.border.border-slate-200\/80.rounded-xl,
-        .bg-white.border.border-slate-200\/80.rounded-2xl,
+        .bg-white.border.border-slate-200\\/80.rounded-xl,
+        .bg-white.border.border-slate-200\\/80.rounded-2xl,
         .bg-white.border.border-slate-200.rounded-2xl {{
           background: rgba(255, 255, 255, 0.75) !important;
           backdrop-filter: blur(12px) !important;
@@ -2636,8 +2637,8 @@ def admin_dashboard(
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }}
         
-        .bg-white.border.border-slate-200\/80.rounded-xl:hover,
-        .bg-white.border.border-slate-200\/80.rounded-2xl:hover,
+        .bg-white.border.border-slate-200\\/80.rounded-xl:hover,
+        .bg-white.border.border-slate-200\\/80.rounded-2xl:hover,
         .bg-white.border.border-slate-200.rounded-2xl:hover {{
           background: rgba(255, 255, 255, 0.9) !important;
           border-color: rgba(255, 255, 255, 0.6) !important;
@@ -2645,8 +2646,8 @@ def admin_dashboard(
           transform: translateY(-2px);
         }}
 
-        body.dark-theme .bg-white.border.border-slate-200\/80.rounded-xl,
-        body.dark-theme .bg-white.border.border-slate-200\/80.rounded-2xl,
+        body.dark-theme .bg-white.border.border-slate-200\\/80.rounded-xl,
+        body.dark-theme .bg-white.border.border-slate-200\\/80.rounded-2xl,
         body.dark-theme .bg-white.border.border-slate-200.rounded-2xl {{
           background: rgba(30, 41, 59, 0.7) !important;
           border: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -2655,8 +2656,8 @@ def admin_dashboard(
           box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;
         }}
         
-        body.dark-theme .bg-white.border.border-slate-200\/80.rounded-xl:hover,
-        body.dark-theme .bg-white.border.border-slate-200\/80.rounded-2xl:hover,
+        body.dark-theme .bg-white.border.border-slate-200\\/80.rounded-xl:hover,
+        body.dark-theme .bg-white.border.border-slate-200\\/80.rounded-2xl:hover,
         body.dark-theme .bg-white.border.border-slate-200.rounded-2xl:hover {{
           background: rgba(30, 41, 59, 0.85) !important;
           border-color: rgba(255, 255, 255, 0.15) !important;
@@ -3181,18 +3182,18 @@ def admin_dashboard(
                     </tr>
                   </thead>
                   <tbody>
-                    \${{filtered.map(c => \`
+                    ${{filtered.map(c => `
                       <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                        <td class="py-3 px-4 text-sm font-semibold text-slate-800">\$\\{{c.recipient_name\\}}</td>
-                        <td class="py-3 px-4 text-xs text-slate-600">\$\\{{c.credential_title\\}}</td>
-                        <td class="py-3 px-4 font-mono text-xs text-slate-500">\$\\{{c.id.substring(0, 8)\\}}...</td>
+                        <td class="py-3 px-4 text-sm font-semibold text-slate-800">${{c.recipient_name}}</td>
+                        <td class="py-3 px-4 text-xs text-slate-600">${{c.credential_title}}</td>
+                        <td class="py-3 px-4 font-mono text-xs text-slate-500">${{c.id.substring(0, 8)}}...</td>
                         <td class="py-3 px-4 text-right">
-                          <a href="/render/\$\\{{c.id\\}}" target="_blank" class="bg-[#0F6A52] hover:bg-[#0A4C3B] text-white text-[10px] font-bold px-2 py-1 rounded transition-colors">
+                          <a href="/render/${{c.id}}" target="_blank" class="bg-[#0F6A52] hover:bg-[#0A4C3B] text-white text-[10px] font-bold px-2 py-1 rounded transition-colors">
                             Ver
                           </a>
                         </td>
                       </tr>
-                    \` ).join('')}}
+                    ` ).join('')}}
                   </tbody>
                 </table>
               </div>
@@ -3448,20 +3449,35 @@ def admin_dashboard(
           }});
         }}
         
-        function filterCertificates() {{
+        let currentPage = 1;
+        let itemsPerPage = 10;
+
+        function changeItemsPerPage(size) {{
+          itemsPerPage = parseInt(size, 10);
+          currentPage = 1;
+          filterCertificates();
+        }}
+
+        function changePage(page) {{
+          currentPage = page;
+          filterCertificates();
+        }}
+
+        function filterCertificates(resetPage = false) {{
+          if (resetPage) {{
+            currentPage = 1;
+          }}
           const search = document.getElementById('search-input').value.toLowerCase().trim();
           const filter = document.getElementById('status-filter').value;
-          const rows = document.querySelectorAll('tbody tr');
+          const rows = Array.from(document.querySelectorAll('tbody tr')).filter(r => r.getAttribute('data-name'));
           
-          let visibleCount = 0;
-          let totalCount = 0;
-          const tokens = search.split(/\s+/).filter(t => t.length > 0);
+          let visibleRows = [];
+          const tokens = search.split(/\\s+/).filter(t => t.length > 0);
 
           rows.forEach(row => {{
             const name = row.getAttribute('data-name');
             if (!name) return;
             
-            totalCount++;
             const id = row.getAttribute('data-id');
             const title = row.getAttribute('data-title');
             const course = row.getAttribute('data-course') || 'N/A';
@@ -3506,7 +3522,7 @@ def admin_dashboard(
                     if (!title.toLowerCase().includes(val)) matchesSearch = false;
                   }}
                 }} else if (token.includes('>') || token.includes('<') || token.includes('=')) {{
-                  const match = token.match(/^([a-zA-Z]+)([><=]+)(\d+)$/);
+                  const match = token.match(/^([a-zA-Z]+)([><=]+)(\\d+)$/);
                   if (match) {{
                     const key = match[1];
                     const op = match[2];
@@ -3539,29 +3555,127 @@ def admin_dashboard(
 
             const cells = row.querySelectorAll('td');
             if (matchesSearch && matchesFilter) {{
+              visibleRows.push(row);
               row.classList.remove('hidden');
-              visibleCount++;
-              
-              highlightCell(cells[0], `<div class="font-semibold text-slate-800">${{name}}</div><div class="text-xs text-slate-400 mt-0.5">${{course}}</div>`, search);
+              highlightCell(cells[0], `<div class="font-semibold text-slate-800 dark:text-slate-200">${{name}}</div><div class="text-xs text-slate-400 mt-0.5">${{course}}</div>`, search);
               highlightCell(cells[1], title, search);
-              highlightCell(cells[2], `<code class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-md font-mono">${{id.substring(0, 8)}}...</code>`, search);
+              highlightCell(cells[2], `<code class="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded-md font-mono">${{id.substring(0, 8)}}...</code>`, search);
             }} else {{
               row.classList.add('hidden');
             }}
           }});
 
+          const totalMatches = visibleRows.length;
+          const totalPages = Math.ceil(totalMatches / itemsPerPage) || 1;
+          if (currentPage > totalPages) currentPage = totalPages;
+
+          const startIndex = (currentPage - 1) * itemsPerPage;
+          const endIndex = startIndex + itemsPerPage;
+
+          rows.forEach(r => r.classList.add('hidden'));
+          
+          visibleRows.slice(startIndex, endIndex).forEach(row => {{
+            row.classList.remove('hidden');
+          }});
+
+          renderPaginationControls(totalMatches, totalPages, startIndex + 1, Math.min(endIndex, totalMatches));
+
           const countEl = document.getElementById('search-count');
           if (countEl) {{
             if (search.length > 0 || filter !== 'all') {{
-              countEl.innerText = `Encontradas ${{visibleCount}} de ${{totalCount}} credenciales`;
+              countEl.innerText = `Encontradas ${{totalMatches}} de ${{rows.length}} credenciales`;
             }} else {{
-              countEl.innerText = `${{totalCount}} credenciales en total`;
+              countEl.innerText = `${{rows.length}} credenciales en total`;
             }}
           }}
         }}
+
+        function renderPaginationControls(totalMatches, totalPages, startNum, endNum) {{
+          const container = document.getElementById('pagination-container');
+          if (!container) return;
+
+          if (totalMatches === 0) {{
+            container.innerHTML = `<div class="text-xs text-slate-400">No hay resultados para mostrar.</div>`;
+            return;
+          }}
+
+          let pagesHtml = '';
+          const prevDisabled = currentPage === 1 ? 'disabled opacity-50 cursor-not-allowed' : '';
+          pagesHtml += `<button onclick="${{currentPage === 1 ? '' : `changePage(${{currentPage - 1}})`}}" class="px-2.5 py-1.5 border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors bg-white dark:bg-slate-900 ${{prevDisabled}}">Anterior</button>`;
+
+          let startPage = Math.max(1, currentPage - 2);
+          let endPage = Math.min(totalPages, startPage + 4);
+          if (endPage - startPage < 4) {{
+            startPage = Math.max(1, endPage - 4);
+          }}
+
+          if (startPage > 1) {{
+            pagesHtml += `<button onclick="changePage(1)" class="w-8 h-8 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80">1</button>`;
+            if (startPage > 2) pagesHtml += `<span class="text-slate-400 text-xs px-1">...</span>`;
+          }}
+
+          for (let p = startPage; p <= endPage; p++) {{
+            const isActive = p === currentPage;
+            const activeClass = isActive 
+              ? 'bg-[#0F6A52] hover:bg-[#0A4C3B] text-white border-[#0F6A52]' 
+              : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300';
+            pagesHtml += `<button onclick="changePage(${{p}})" class="w-8 h-8 rounded-lg text-xs font-semibold transition-all border ${{activeClass}}">${{p}}</button>`;
+          }}
+
+          if (endPage < totalPages) {{
+            if (endPage < totalPages - 1) pagesHtml += `<span class="text-slate-400 text-xs px-1">...</span>`;
+            pagesHtml += `<button onclick="changePage(${{totalPages}})" class="w-8 h-8 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80">${{totalPages}}</button>`;
+          }}
+
+          const nextDisabled = currentPage === totalPages ? 'disabled opacity-50 cursor-not-allowed' : '';
+          pagesHtml += `<button onclick="${{currentPage === totalPages ? '' : `changePage(${{currentPage + 1}})`}}" class="px-2.5 py-1.5 border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors bg-white dark:bg-slate-900 ${{nextDisabled}}">Siguiente</button>`;
+
+          container.innerHTML = `
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 w-full text-slate-500 dark:text-slate-400 text-[11px]">
+              <div class="flex items-center gap-2">
+                <span>Mostrando <strong>${{startNum}}-${{endNum}}</strong> de <strong>${{totalMatches}}</strong></span>
+                <span class="text-slate-300 dark:text-slate-700">|</span>
+                <div class="flex items-center gap-1.5">
+                  <span>Filas por página:</span>
+                  <select onchange="changeItemsPerPage(this.value)" class="border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 bg-white dark:bg-slate-900 focus:outline-none focus:border-[#0F6A52] text-xs font-medium cursor-pointer">
+                    <option value="5" ${{itemsPerPage === 5 ? 'selected' : ''}}>5</option>
+                    <option value="10" ${{itemsPerPage === 10 ? 'selected' : ''}}>10</option>
+                    <option value="20" ${{itemsPerPage === 20 ? 'selected' : ''}}>20</option>
+                    <option value="50" ${{itemsPerPage === 50 ? 'selected' : ''}}>50</option>
+                  </select>
+                </div>
+              </div>
+              <div class="flex gap-1.5 items-center">
+                ${{pagesHtml}}
+              </div>
+            </div>
+          `;
+        }}
+
+        function filterAuditLogs() {{
+          const search = document.getElementById('audit-search-input').value.toLowerCase().trim();
+          const filter = document.getElementById('audit-action-filter').value;
+          const items = document.querySelectorAll('#audit-log-list li');
+          
+          items.forEach(item => {{
+            const action = item.getAttribute('data-action');
+            const username = item.getAttribute('data-username').toLowerCase();
+            const details = item.getAttribute('data-details').toLowerCase();
+            const text = item.textContent.toLowerCase();
+            
+            const matchesFilter = filter === 'all' || action === filter;
+            const matchesSearch = !search || text.includes(search) || username.includes(search) || details.includes(search);
+            
+            if (matchesFilter && matchesSearch) {{
+              item.style.display = 'block';
+            }} else {{
+              item.style.display = 'none';
+            }}
+          }});
+        }}
         
         function highlightCell(cell, originalHtml, searchVal) {{
-          const cleanSearch = searchVal.split(/\s+/)
+          const cleanSearch = searchVal.split(/\\s+/)
             .filter(t => !t.includes(':') && !t.includes('>') && !t.includes('<') && !t.includes('='))
             .join(' ')
             .trim();
@@ -3571,7 +3685,7 @@ def admin_dashboard(
             return;
           }}
           
-          const regex = new RegExp(`($${{cleanSearch.replace(/[-\\/\\^$*+?.()|[\\]{{}}]/g, '\\\\$&')}})`, 'gi');
+          const regex = new RegExp(`(${{cleanSearch.replace(/[-\\/\\\\^\\$*+?.()|\\\\[\\\\]{{}}]/g, '\\\\$&')}})`, 'gi');
           const parts = originalHtml.split(/(<[^>]*>)/);
           const highlightedParts = parts.map(part => {{
             if (part.startsWith('<')) return part;
@@ -3846,6 +3960,10 @@ def admin_dashboard(
             'api-keys': {{
               title: 'Tokens de API',
               desc: 'Administra claves de acceso y permisos para emisores y auditores externos'
+            }},
+            'audit-log': {{
+              title: 'Bitácora de Seguridad',
+              desc: 'Historial de auditoría inmutable de todas las acciones administrativas'
             }}
           }};
           
@@ -3862,7 +3980,8 @@ def admin_dashboard(
             {{ id: 'overview', nav: 'nav-overview' }},
             {{ id: 'branding', nav: 'nav-branding' }},
             {{ id: 'signature', nav: 'nav-signature' }},
-            {{ id: 'api-keys', nav: 'nav-tokens' }}
+            {{ id: 'api-keys', nav: 'nav-tokens' }},
+            {{ id: 'audit-log', nav: 'nav-audit-log' }}
           ];
 
           tabs.forEach(t => {{
@@ -3935,7 +4054,7 @@ def admin_dashboard(
                 <circle cx="12" cy="12" r="10" stroke="rgba(16,185,129,0.2)" stroke-width="4"></circle>
                 <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
-              <span class="text-sm font-semibold text-slate-700">\${{loaderText}}</span>
+              <span class="text-sm font-semibold text-slate-700">${{loaderText}}</span>
             `;
             container.style.position = 'relative';
             container.appendChild(overlay);
@@ -3948,7 +4067,7 @@ def admin_dashboard(
           
           // Switch to active tab from hash if exists, default to 'overview'
           const hash = window.location.hash.substring(1);
-          const validTabs = ['overview', 'branding', 'signature', 'api-keys'];
+          const validTabs = ['overview', 'branding', 'signature', 'api-keys', 'audit-log'];
           if (validTabs.includes(hash)) {{
             switchDashboardTab(hash);
           }} else {{
@@ -3992,12 +4111,11 @@ def admin_dashboard(
             window.history.replaceState({{}}, document.title, window.location.pathname);
           }}
 
-          // Initial search count update
-          const rows = document.querySelectorAll('tbody tr');
-          let count = 0;
-          rows.forEach(r => {{ if (r.getAttribute('data-name')) count++; }});
-          const countEl = document.getElementById('search-count');
-          if (countEl) countEl.innerText = `${{count}} credenciales en total`;
+          // Initial filter and pagination layout
+          filterCertificates();
+          
+          // Initial audit filter
+          filterAuditLogs();
         }});
 
         function toggleTheme() {{
@@ -4226,6 +4344,12 @@ def admin_dashboard(
             </svg>
             <span>Tokens de API</span>
           </a>
+          <a href="#audit-log" id="nav-audit-log" onclick="switchDashboardTab('audit-log'); return false;" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50/60 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Bitácora</span>
+          </a>
         </div>
         
         <div class="border-t border-slate-100 pt-5 flex items-center justify-between">
@@ -4306,7 +4430,7 @@ def admin_dashboard(
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
             <!-- Left Table Panel -->
             <div class="lg:col-span-2 bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden">
-              <div class="py-5 px-6 border-b border-slate-100 flex justify-between items-center">
+              <div class="py-5 px-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/10">
                 <h3 class="font-outfit text-lg font-bold text-slate-800">Listado de Credenciales Recientes</h3>
                 <span id="search-count" class="text-xs text-slate-400 font-medium"></span>
               </div>
@@ -4318,14 +4442,14 @@ def admin_dashboard(
                       <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </span>
-                  <input type="text" id="search-input" oninput="filterCertificates()" placeholder="Buscar por alumno, certificado o ID..."
+                  <input type="text" id="search-input" oninput="filterCertificates(true)" placeholder="Buscar por alumno, certificado o ID..."
                     class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:border-[#0F6A52] focus:bg-white focus:ring-2 focus:ring-emerald-50 transition-all">
                   <!-- Suggestion Dropdown -->
                   <div id="search-suggestions" class="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-40 hidden max-h-48 overflow-y-auto">
                   </div>
                 </div>
-                <select id="status-filter" onchange="filterCertificates()"
-                  class="border border-slate-200 rounded-lg text-sm px-3 py-2 bg-slate-50 focus:outline-none focus:border-[#0F6A52] cursor-pointer">
+                <select id="status-filter" onchange="filterCertificates(true)"
+                  class="border border-slate-200 rounded-lg text-sm px-3 py-2 bg-slate-50 focus:outline-none focus:border-[#0F6A52] cursor-pointer font-semibold text-slate-650">
                   <option value="all">Estatus: Todos</option>
                   <option value="active">Activos</option>
                   <option value="revoked">Revocados</option>
@@ -4355,6 +4479,11 @@ def admin_dashboard(
                   </tbody>
                 </table>
               </div>
+
+              <!-- Pagination Controls -->
+              <div id="pagination-container" class="p-4 border-t border-slate-100 dark:border-slate-700/80 flex justify-between items-center bg-slate-50/10">
+                <!-- Loaded dynamically by JS -->
+              </div>
             </div>
             
             <!-- Right Sidebar Widgets -->
@@ -4374,7 +4503,7 @@ def admin_dashboard(
                   
                   <!-- Filter Selectors -->
                   <div class="flex gap-2">
-                    <select id="chart-filter-type" onchange="updateChartData(this.value)" class="w-full text-[11px] border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:border-[#0F6A52] cursor-pointer font-semibold text-slate-600">
+                    <select id="chart-filter-type" onchange="updateChartData(this.value)" class="w-full text-[11px] border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:border-[#0F6A52] cursor-pointer font-semibold text-slate-650">
                       <option value="last_6_months">Filtrar: Últimos 6 Meses</option>
                       <option value="current_month_by_day">Filtrar: Días (Mes Actual)</option>
                       <option value="current_year_by_month">Filtrar: Meses (Año Actual)</option>
@@ -4421,22 +4550,33 @@ def admin_dashboard(
               </div>
 
               <!-- Recent Activity Timeline Widget (Audit Logs) -->
-              <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div class="flex items-center gap-2">
-                    <svg class="w-5 h-5 text-[#B88A3B]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h3 class="font-outfit font-bold text-slate-800">Bitácora de Auditoría</h3>
+              <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm p-6 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                      <svg class="w-5 h-5 text-[#B88A3B]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <h3 class="font-outfit font-bold text-slate-800 dark:text-slate-200">Actividad Reciente</h3>
+                    </div>
+                    <span class="text-[10px] bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded font-semibold border border-amber-100 dark:border-amber-900/30 uppercase">Seguridad</span>
                   </div>
-                  <span class="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-semibold border border-amber-100 uppercase">Seguridad</span>
+                  
+                  <!-- Timeline List -->
+                  <div class="flow-root max-h-[240px] overflow-y-auto pr-1">
+                    <ul role="list" class="-mb-8">
+                      {audit_logs_html}
+                    </ul>
+                  </div>
                 </div>
                 
-                <!-- Timeline List -->
-                <div class="flow-root max-h-[320px] overflow-y-auto pr-1">
-                  <ul role="list" class="-mb-8">
-                    {audit_logs_html}
-                  </ul>
+                <div class="border-t border-slate-100 dark:border-slate-850 mt-5 pt-3">
+                  <a href="#audit-log" onclick="switchDashboardTab('audit-log'); return false;" class="text-xs font-semibold text-[#0F6A52] hover:text-[#0A4C3B] dark:text-emerald-500 dark:hover:text-emerald-400 flex items-center gap-1.5 transition-colors group">
+                    <span>Ver bitácora de seguridad completa</span>
+                    <svg class="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </a>
                 </div>
               </div>
             </div>
@@ -4705,6 +4845,55 @@ def admin_dashboard(
             </div>
           </section>
         </div>
+        
+        <!-- Section 5: Audit Log Tab -->
+        <div id="section-audit-log" class="tab-section">
+          <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden max-w-5xl mx-auto">
+            <div class="py-5 px-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/10">
+              <div>
+                <h3 class="font-outfit text-lg font-bold text-slate-800">Bitácora de Auditoría de Seguridad</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Historial inmutable de acciones administrativas y eventos de la plataforma</p>
+              </div>
+              
+              <div class="flex gap-3 w-full sm:w-auto items-center font-semibold">
+                <div class="relative flex-grow">
+                  <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </span>
+                  <input type="text" id="audit-search-input" oninput="filterAuditLogs()" placeholder="Buscar en la bitácora..."
+                    class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50 focus:outline-none focus:border-[#0F6A52] focus:bg-white transition-all w-60">
+                </div>
+                
+                <select id="audit-action-filter" onchange="filterAuditLogs()"
+                  class="border border-slate-200 rounded-lg text-xs px-3 py-2 bg-slate-50 focus:outline-none focus:border-[#0F6A52] cursor-pointer font-semibold text-slate-600">
+                  <option value="all">Acción: Todas</option>
+                  <option value="login_success">Inicios de Sesión</option>
+                  <option value="login_failure">Fallos de Acceso</option>
+                  <option value="logout">Cierres de Sesión</option>
+                  <option value="issue_certificate">Emisiones de Certificado</option>
+                  <option value="issue_batch">Emisiones de Lote</option>
+                  <option value="revoke_certificate">Revocaciones</option>
+                  <option value="branding_change">Cambios de Personalización</option>
+                  <option value="upload_signature">Cargas de Firma</option>
+                  <option value="upload_seal">Cargas de Sello</option>
+                  <option value="create_api_key">Generaciones de Token</option>
+                  <option value="revoke_api_key">Revocaciones de Token</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="p-6">
+              <!-- Timeline List -->
+              <div class="flow-root max-h-[600px] overflow-y-auto pr-2">
+                <ul role="list" class="-mb-8" id="audit-log-list">
+                  {audit_logs_html}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
       
       <!-- Custom Revocation Modal -->
@@ -4822,6 +5011,16 @@ def admin_dashboard(
                 <span class="text-xs font-semibold">Ir a Tokens de API</span>
               </div>
               <span class="text-[9px] text-slate-400 dark:text-slate-500 font-mono bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50">API</span>
+            </div>
+            
+            <div class="cmd-item flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-slate-700 dark:text-slate-300" data-action="tab-audit-log">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-xs font-semibold">Ir a Bitácora de Seguridad</span>
+              </div>
+              <span class="text-[9px] text-slate-400 dark:text-slate-500 font-mono bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50">Auditoría</span>
             </div>
             
             <div class="cmd-item flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-slate-700 dark:text-slate-300" data-action="toggle-theme">
