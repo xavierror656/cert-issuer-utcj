@@ -2618,6 +2618,136 @@ def admin_dashboard(
           --teal: {palette.get('teal')};
           --silver: {palette.get('silver')};
         }}
+        
+        /* Smooth transitions for theme toggle */
+        body, nav, main, header, .premium-card, input, select, textarea, button, svg, circle, path, .bg-white, .border-b, .border-slate-100, .border-slate-200 {{
+          transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, fill 0.3s ease, stroke 0.3s ease, box-shadow 0.3s ease;
+        }}
+
+        /* Glassmorphism Cards */
+        .bg-white.border.border-slate-200\/80.rounded-xl,
+        .bg-white.border.border-slate-200\/80.rounded-2xl,
+        .bg-white.border.border-slate-200.rounded-2xl {{
+          background: rgba(255, 255, 255, 0.75) !important;
+          backdrop-filter: blur(12px) !important;
+          -webkit-backdrop-filter: blur(12px) !important;
+          border: 1px solid rgba(255, 255, 255, 0.4) !important;
+          box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04) !important;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }}
+        
+        .bg-white.border.border-slate-200\/80.rounded-xl:hover,
+        .bg-white.border.border-slate-200\/80.rounded-2xl:hover,
+        .bg-white.border.border-slate-200.rounded-2xl:hover {{
+          background: rgba(255, 255, 255, 0.9) !important;
+          border-color: rgba(255, 255, 255, 0.6) !important;
+          box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08) !important;
+          transform: translateY(-2px);
+        }}
+
+        body.dark-theme .bg-white.border.border-slate-200\/80.rounded-xl,
+        body.dark-theme .bg-white.border.border-slate-200\/80.rounded-2xl,
+        body.dark-theme .bg-white.border.border-slate-200.rounded-2xl {{
+          background: rgba(30, 41, 59, 0.7) !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
+          backdrop-filter: blur(12px) !important;
+          -webkit-backdrop-filter: blur(12px) !important;
+          box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;
+        }}
+        
+        body.dark-theme .bg-white.border.border-slate-200\/80.rounded-xl:hover,
+        body.dark-theme .bg-white.border.border-slate-200\/80.rounded-2xl:hover,
+        body.dark-theme .bg-white.border.border-slate-200.rounded-2xl:hover {{
+          background: rgba(30, 41, 59, 0.85) !important;
+          border-color: rgba(255, 255, 255, 0.15) !important;
+          box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+        }}
+
+        /* Glassmorphic Sidebar */
+        nav.w-64 {{
+          background: rgba(255, 255, 255, 0.8) !important;
+          backdrop-filter: blur(16px) !important;
+          -webkit-backdrop-filter: blur(16px) !important;
+          border-right: 1px solid rgba(255, 255, 255, 0.4) !important;
+        }}
+        body.dark-theme nav.w-64 {{
+          background: rgba(15, 23, 42, 0.8) !important;
+          border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+        }}
+
+        /* Autocomplete suggestions dropdown glassmorphism */
+        #search-suggestions {{
+          background: rgba(255, 255, 255, 0.95) !important;
+          backdrop-filter: blur(8px) !important;
+          -webkit-backdrop-filter: blur(8px) !important;
+        }}
+        body.dark-theme #search-suggestions {{
+          background: rgba(30, 41, 59, 0.95) !important;
+          border-color: #334155 !important;
+        }}
+
+        /* Command Palette Styling */
+        #cmd-palette-modal {{
+          transition: opacity 0.2s ease, visibility 0.2s ease;
+        }}
+        #cmd-palette-modal.hidden {{
+          opacity: 0;
+          visibility: hidden;
+          pointer-events: none;
+        }}
+        #cmd-palette-modal:not(.hidden) {{
+          opacity: 1;
+          visibility: visible;
+          pointer-events: auto;
+        }}
+        #cmd-palette-box {{
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+        }}
+        #cmd-palette-modal.hidden #cmd-palette-box {{
+          transform: scale(0.95) translateY(-10px);
+          opacity: 0;
+        }}
+        #cmd-palette-modal:not(.hidden) #cmd-palette-box {{
+          transform: scale(1) translateY(0);
+          opacity: 1;
+        }}
+        .cmd-item {{
+          transition: background-color 0.15s ease, color 0.15s ease;
+        }}
+        .cmd-item.active-item {{
+          background-color: var(--primary, #0F6A52) !important;
+          color: white !important;
+        }}
+        .cmd-item.active-item svg, .cmd-item.active-item span {{
+          color: white !important;
+        }}
+        
+        body.dark-theme #cmd-palette-box {{
+          background-color: #1e293b !important;
+          border-color: #334155 !important;
+          color: #ffffff !important;
+        }}
+        body.dark-theme #cmd-palette-box input {{
+          color: #ffffff !important;
+        }}
+        body.dark-theme #cmd-palette-box .border-b {{
+          border-color: #334155 !important;
+        }}
+        body.dark-theme .cmd-item:hover {{
+          background-color: rgba(255, 255, 255, 0.05) !important;
+        }}
+
+        /* SVG Chart line shadow */
+        #chart-line-path {{
+          filter: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.08));
+        }}
+        #chart-dots-group circle {{
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }}
+        #chart-dots-group circle:hover {{
+          filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.15));
+        }}
+
         /* Mapear dinámicamente clases hardcodeadas de Tailwind a variables CSS */
         [class*="bg-[#0F6A52]"] {{ background-color: var(--primary) !important; }}
         [class*="hover:bg-[#0A4C3B]"]:hover {{ background-color: var(--primary-dark) !important; }}
@@ -3614,11 +3744,45 @@ def admin_dashboard(
           showToast(`¡Exportados ${{count}} registros a CSV con éxito!`);
         }}
         
-        function showToast(message) {{
+        function showToast(message, type = 'success') {{
           const toast = document.getElementById('toast-notification');
-          document.getElementById('toast-msg').innerText = message;
+          const msgEl = document.getElementById('toast-msg');
+          const iconContainer = document.getElementById('toast-icon-container');
+          if (!toast || !msgEl) return;
+          
+          msgEl.innerText = message;
+          
+          // Clear previous theme classes
+          toast.className = 'fixed bottom-6 right-6 px-5 py-4 rounded-xl text-sm font-semibold shadow-2xl flex items-center gap-3 transition-all duration-300 transform z-50 border';
+          
+          let iconHtml = '';
+          if (type === 'success') {{
+            toast.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'dark:bg-emerald-950/90', 'dark:text-emerald-200', 'dark:border-emerald-800');
+            iconHtml = `<svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>`;
+          }} else if (type === 'error') {{
+            toast.classList.add('bg-red-50', 'text-red-800', 'border-red-200', 'dark:bg-red-950/90', 'dark:text-red-200', 'dark:border-red-800');
+            iconHtml = `<svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>`;
+          }} else {{ // info
+            toast.classList.add('bg-blue-50', 'text-blue-800', 'border-blue-200', 'dark:bg-blue-950/90', 'dark:text-blue-200', 'dark:border-blue-800');
+            iconHtml = `<svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>`;
+          }}
+          
+          if (iconContainer) iconContainer.innerHTML = iconHtml;
+          
+          // Slide in and fade in
           toast.classList.remove('translate-y-24', 'opacity-0');
-          setTimeout(() => {{
+          toast.classList.add('translate-y-0', 'opacity-100');
+          
+          // Auto dismiss after 4 seconds
+          if (window.toastTimeout) clearTimeout(window.toastTimeout);
+          window.toastTimeout = setTimeout(() => {{
+            toast.classList.remove('translate-y-0', 'opacity-100');
             toast.classList.add('translate-y-24', 'opacity-0');
           }}, 4000);
         }}
@@ -3866,7 +4030,114 @@ def admin_dashboard(
           }}
         }})();
 
+        // Command Palette Logic
+        function toggleCommandPalette() {{
+          const modal = document.getElementById('cmd-palette-modal');
+          const input = document.getElementById('cmd-palette-input');
+          if (!modal) return;
+          
+          if (modal.classList.contains('hidden')) {{
+            modal.classList.remove('hidden');
+            if (input) {{
+              input.value = '';
+              filterPaletteCommands();
+              setTimeout(() => input.focus(), 50);
+            }}
+          }} else {{
+            modal.classList.add('hidden');
+          }}
+        }}
+
+        function filterPaletteCommands() {{
+          const input = document.getElementById('cmd-palette-input');
+          const list = document.getElementById('cmd-palette-list');
+          if (!input || !list) return;
+          
+          const query = input.value.toLowerCase().trim();
+          const items = list.querySelectorAll('.cmd-item');
+          let firstVisible = null;
+          
+          items.forEach(item => {{
+            const text = item.textContent.toLowerCase();
+            if (text.includes(query)) {{
+              item.style.display = 'flex';
+              item.classList.remove('active-item');
+              if (!firstVisible) firstVisible = item;
+            }} else {{
+              item.style.display = 'none';
+              item.classList.remove('active-item');
+            }}
+          }});
+          
+          if (firstVisible) {{
+            firstVisible.classList.add('active-item');
+          }}
+        }}
+
+        function executePaletteAction(item) {{
+          if (!item) return;
+          const action = item.getAttribute('data-action');
+          toggleCommandPalette(); // close palette
+          
+          if (action.startsWith('tab-')) {{
+            const tabId = action.replace('tab-', '');
+            switchDashboardTab(tabId);
+          }} else if (action === 'toggle-theme') {{
+            toggleTheme();
+          }} else if (action === 'focus-search') {{
+            switchDashboardTab('overview');
+            setTimeout(() => {{
+              const searchInput = document.getElementById('search-input');
+              if (searchInput) searchInput.focus();
+            }}, 100);
+          }} else if (action === 'logout') {{
+            window.location.href = '/admin/logout';
+          }}
+        }}
+
         window.addEventListener('keydown', (e) => {{
+          const modal = document.getElementById('cmd-palette-modal');
+          const isOpen = modal && !modal.classList.contains('hidden');
+          
+          // Ctrl + K or Cmd + K to toggle
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {{
+            e.preventDefault();
+            toggleCommandPalette();
+            return;
+          }}
+          
+          if (isOpen) {{
+            const list = document.getElementById('cmd-palette-list');
+            const items = Array.from(list.querySelectorAll('.cmd-item')).filter(i => i.style.display !== 'none');
+            const activeIndex = items.findIndex(i => i.classList.contains('active-item'));
+            
+            if (e.key === 'Escape') {{
+              e.preventDefault();
+              toggleCommandPalette();
+            }} else if (e.key === 'ArrowDown') {{
+              e.preventDefault();
+              if (items.length === 0) return;
+              if (activeIndex !== -1) items[activeIndex].classList.remove('active-item');
+              const nextIndex = (activeIndex + 1) % items.length;
+              items[nextIndex].classList.add('active-item');
+              items[nextIndex].scrollIntoView({{ block: 'nearest' }});
+            }} else if (e.key === 'ArrowUp') {{
+              e.preventDefault();
+              if (items.length === 0) return;
+              if (activeIndex !== -1) items[activeIndex].classList.remove('active-item');
+              const prevIndex = (activeIndex - 1 + items.length) % items.length;
+              items[prevIndex].classList.add('active-item');
+              items[prevIndex].scrollIntoView({{ block: 'nearest' }});
+            }} else if (e.key === 'Enter') {{
+              e.preventDefault();
+              if (activeIndex !== -1) {{
+                executePaletteAction(items[activeIndex]);
+              }}
+            }}
+            return;
+          }}
+          
+          // Normal shortcut fallback
           if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {{
             e.preventDefault();
             const searchInput = document.getElementById('search-input');
@@ -3875,8 +4146,41 @@ def admin_dashboard(
               searchInput.focus();
             }}
           }}
+          if (e.key === 't' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {{
+            e.preventDefault();
+            toggleTheme();
+          }}
           if (e.key === 'Escape') {{
             closeRevocationModal();
+          }}
+        }});
+        
+        window.addEventListener('DOMContentLoaded', () => {{
+          const paletteInput = document.getElementById('cmd-palette-input');
+          if (paletteInput) {{
+            paletteInput.addEventListener('input', filterPaletteCommands);
+          }}
+          
+          const list = document.getElementById('cmd-palette-list');
+          if (list) {{
+            list.querySelectorAll('.cmd-item').forEach(item => {{
+              item.addEventListener('mouseenter', () => {{
+                list.querySelectorAll('.cmd-item').forEach(i => i.classList.remove('active-item'));
+                item.classList.add('active-item');
+              }});
+              item.addEventListener('click', () => {{
+                executePaletteAction(item);
+              }});
+            }});
+          }}
+          
+          const modal = document.getElementById('cmd-palette-modal');
+          if (modal) {{
+            modal.addEventListener('click', (e) => {{
+              if (e.target === modal) {{
+                toggleCommandPalette();
+              }}
+            }});
           }}
         }});
       </script>
@@ -4081,16 +4385,19 @@ def admin_dashboard(
                 <!-- SVG Chart Area -->
                 <div class="relative w-full h-32 mt-2">
                   <!-- Interactive Tooltip -->
-                  <div id="chart-tooltip" class="absolute hidden bg-slate-900 text-white text-[10px] font-medium px-2 py-1 rounded shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-full z-10 transition-all duration-155">
+                  <div id="chart-tooltip" class="absolute hidden bg-slate-900/90 dark:bg-slate-800/90 backdrop-blur-md text-white dark:text-slate-100 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg shadow-xl pointer-events-none transform -translate-x-1/2 -translate-y-full z-10 transition-all duration-150 border border-slate-700/50">
                     <span id="tooltip-content">0</span>
                   </div>
                   
                   <svg viewBox="0 0 300 120" class="w-full h-full overflow-visible" id="emission-svg-chart">
                     <defs>
                       <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="var(--primary, #0F6A52)" stop-opacity="0.25"/>
+                        <stop offset="0%" stop-color="var(--primary, #0F6A52)" stop-opacity="0.3"/>
                         <stop offset="100%" stop-color="var(--primary, #0F6A52)" stop-opacity="0.0"/>
                       </linearGradient>
+                      <filter id="chart-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                        <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="var(--primary, #0F6A52)" flood-opacity="0.25"/>
+                      </filter>
                     </defs>
                     
                     <!-- Grid Lines -->
@@ -4100,7 +4407,7 @@ def admin_dashboard(
                     
                     <!-- Dynamic paths generated by JS -->
                     <path id="chart-area-path" d="" fill="url(#chart-grad)"/>
-                    <path id="chart-line-path" d="" fill="none" stroke="var(--primary, #0F6A52)" stroke-width="2.5" stroke-linecap="round" class="transition-all duration-500"/>
+                    <path id="chart-line-path" d="" fill="none" stroke="var(--primary, #0F6A52)" stroke-width="2.5" stroke-linecap="round" filter="url(#chart-shadow)" class="transition-all duration-500"/>
                     
                     <!-- Dots group -->
                     <g id="chart-dots-group"></g>
@@ -4464,11 +4771,100 @@ def admin_dashboard(
         </div>
       </div>
       
+      <!-- Command Palette Modal -->
+      <div id="cmd-palette-modal" class="fixed inset-0 bg-slate-900/50 dark:bg-slate-950/65 backdrop-blur-sm z-50 flex items-start justify-center pt-[15vh] hidden">
+        <div id="cmd-palette-box" class="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200/80 flex flex-col m-4">
+          <div class="p-4 border-b border-slate-100 flex items-center gap-3">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" id="cmd-palette-input" placeholder="Escribe un comando (ej: panel, oscuro)..." class="w-full text-sm outline-none bg-transparent text-slate-800 font-medium" autocomplete="off" />
+            <span class="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded font-mono">ESC</span>
+          </div>
+          
+          <div id="cmd-palette-list" class="max-h-80 overflow-y-auto p-2 flex flex-col gap-1">
+            <!-- Command items -->
+            <div class="cmd-item flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-slate-700 dark:text-slate-300 active-item" data-action="tab-overview">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" />
+                </svg>
+                <span class="text-xs font-semibold">Ir al Panel de Control</span>
+              </div>
+              <span class="text-[9px] text-slate-400 dark:text-slate-500 font-mono bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50">Panel</span>
+            </div>
+            
+            <div class="cmd-item flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-slate-700 dark:text-slate-300" data-action="tab-branding">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
+                <span class="text-xs font-semibold">Ir a Personalización Visual</span>
+              </div>
+              <span class="text-[9px] text-slate-400 dark:text-slate-500 font-mono bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50">Branding</span>
+            </div>
+            
+            <div class="cmd-item flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-slate-700 dark:text-slate-300" data-action="tab-signature">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <span class="text-xs font-semibold">Ir a Firmas y Sellos Oficiales</span>
+              </div>
+              <span class="text-[9px] text-slate-400 dark:text-slate-500 font-mono bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50">Firma</span>
+            </div>
+            
+            <div class="cmd-item flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-slate-700 dark:text-slate-300" data-action="tab-api-keys">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                <span class="text-xs font-semibold">Ir a Tokens de API</span>
+              </div>
+              <span class="text-[9px] text-slate-400 dark:text-slate-500 font-mono bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50">API</span>
+            </div>
+            
+            <div class="cmd-item flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-slate-700 dark:text-slate-300" data-action="toggle-theme">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+                <span class="text-xs font-semibold">Alternar Modo Oscuro / Claro</span>
+              </div>
+              <span class="text-[9px] text-slate-400 dark:text-slate-500 font-mono bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50">T</span>
+            </div>
+            
+            <div class="cmd-item flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-slate-700 dark:text-slate-300" data-action="focus-search">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span class="text-xs font-semibold">Buscar Alumnos y Credenciales</span>
+              </div>
+              <span class="text-[9px] text-slate-400 dark:text-slate-500 font-mono bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50">/</span>
+            </div>
+            
+            <div class="cmd-item flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-red-600 dark:text-red-400" data-action="logout">
+              <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span class="text-xs font-semibold">Cerrar Sesión</span>
+              </div>
+              <span class="text-[9px] text-red-400 font-mono bg-red-50 dark:bg-red-950/30 px-1.5 py-0.5 rounded border border-red-200/30 dark:border-red-900/30">Salir</span>
+            </div>
+          </div>
+          
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center text-[10px] text-slate-400">
+            <span>Usa <kbd class="font-mono bg-white dark:bg-slate-700 border dark:border-slate-650 px-1 py-0.5 rounded">↑↓</kbd> para navegar y <kbd class="font-mono bg-white dark:bg-slate-700 border dark:border-slate-650 px-1 py-0.5 rounded">Enter</kbd> para seleccionar.</span>
+            <span>Atajo: <kbd class="font-mono bg-white dark:bg-slate-700 border dark:border-slate-650 px-1 py-0.5 rounded">Ctrl + K</kbd></span>
+          </div>
+        </div>
+      </div>
+
       <!-- Toast Alert -->
-      <div id="toast-notification" class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3 rounded-xl text-sm font-medium shadow-xl flex items-center gap-3 transition-all transform translate-y-24 opacity-0 z-50">
-        <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+      <div id="toast-notification" class="fixed bottom-6 right-6 px-5 py-4 rounded-xl text-sm font-semibold shadow-2xl flex items-center gap-3 transition-all duration-300 transform translate-y-24 opacity-0 z-50 border">
+        <span id="toast-icon-container"></span>
         <span id="toast-msg">Mensaje de notificación</span>
       </div>
       
