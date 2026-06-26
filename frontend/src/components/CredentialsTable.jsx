@@ -282,16 +282,26 @@ export function CredentialsTable({ certs, csrfToken, onRefresh, onShowToast }) {
                     )}
                   </td>
                   <td class="py-4 text-right">
-                    {c.revoked ? (
-                      <span class="text-xs text-base-content/45 font-medium">Revocada</span>
-                    ) : (
-                      <button
-                        onClick={() => openRevocationModal(c)}
-                        class="btn btn-error btn-outline btn-xs font-semibold"
+                    <div class="flex items-center justify-end gap-2">
+                      <a
+                        href={`/render/${c.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="btn btn-outline btn-xs font-semibold"
                       >
-                        Revocar
-                      </button>
-                    )}
+                        Ver
+                      </a>
+                      {c.revoked ? (
+                        <span class="text-[11px] text-base-content/40 font-semibold uppercase px-1">Revocada</span>
+                      ) : (
+                        <button
+                          onClick={() => openRevocationModal(c)}
+                          class="btn btn-error btn-outline btn-xs font-semibold"
+                        >
+                          Revocar
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
