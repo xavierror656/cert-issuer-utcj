@@ -155,6 +155,13 @@ if not frontend_dist_dir.exists():
 if (frontend_dist_dir / "assets-dashboard").exists():
     app.mount("/assets-dashboard", StaticFiles(directory=str(frontend_dist_dir / "assets-dashboard")), name="assets-dashboard")
 
+@app.get("/")
+def get_landing(request: Request) -> Response:
+    index_html_path = frontend_dist_dir / "index.html"
+    if index_html_path.exists():
+        return FileResponse(index_html_path)
+    raise HTTPException(status_code=404, detail="Frontend build not found")
+
 @app.get("/favicon.svg")
 def get_favicon() -> Response:
     fav = frontend_dist_dir / "favicon.svg"
@@ -186,6 +193,18 @@ def health() -> dict[str, str]:
 @app.get("/issuer-profile")
 def issuer_profile() -> dict:
     return settings.issuer_profile()
+
+
+@app.get("/api/branding")
+def get_public_branding() -> dict[str, str]:
+    palette = get_palette(settings)
+    return {
+        "green": palette.get("green", "#0F6A52"),
+        "green_deep": palette.get("green_deep", "#0A4C3B"),
+        "teal": palette.get("teal", "#0F3E4A"),
+        "gold": palette.get("gold", "#B88A3B"),
+        "silver": palette.get("silver", "#8FA3AD"),
+    }
 
 
 @app.get("/public-keys")
@@ -381,8 +400,8 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
     accent_color = palette.get("gold", "#B88A3B")
     silver_color = palette.get("silver", "#8FA3AD")
 
-    pdf_url = settings.certificate_pdf_url(certificate_id)
-    json_url = settings.certificate_url(certificate_id)
+    pdf_url = f"/certificate/{certificate_id}/pdf"
+    json_url = f"/certificate/{certificate_id}"
 
     skills_html = "".join(f'<span class="skill-tag">{skill}</span>' for skill in skills)
 
@@ -679,12 +698,27 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
       display: none;
       flex-grow: 1;
       height: 680px;
+      position: relative;
     }}
 
     .pdf-frame iframe {{
+      position: relative;
       width: 100%;
       height: 100%;
       border: none;
+      z-index: 2;
+      background: transparent;
+    }}
+
+    @media (max-width: 640px) {{
+      .view-controls {{
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }}
+      .quick-pdf-btn {{
+        justify-content: center;
+      }}
     }}
 
     /* Sidebar metadata panel */
@@ -1104,6 +1138,10 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         Vista Documento PDF
       </button>
     </div>
+    <a href="{pdf_url}" target="_blank" class="quick-pdf-btn" style="text-decoration: none; display: flex; align-items: center; gap: 8px; background: var(--primary); color: white; padding: 8px 16px; border-radius: 12px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 10px rgba(15, 106, 82, 0.2); transition: var(--transition);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+      Ver PDF Oficial
+    </a>
   </div>
 
   <div class="container">
@@ -1159,8 +1197,12 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         </div>
       </div>
 
-      <div id="pdf-certificate-view" class="pdf-frame">
-        <iframe src="{pdf_url}#toolbar=0" title="Visualizador de PDF del Certificado"></iframe>
+      <div id="pdf-certificate-view" class="pdf-frame" style="position: relative;">
+        <div class="pdf-fallback-message" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; background: rgba(248, 250, 249, 0.85); border-radius: 12px; z-index: 1;">
+          <p style="margin-bottom: 16px; font-size: 15px; color: var(--secondary); font-weight: 500;">Si el visor de PDF no se carga automáticamente en tu dispositivo, puedes abrirlo directamente:</p>
+          <a href="{pdf_url}" target="_blank" class="btn btn-primary" style="padding: 10px 24px; text-decoration: none;">Ver PDF Oficial en Nueva Pestaña</a>
+        </div>
+        <iframe src="{pdf_url}#toolbar=0" title="Visualizador de PDF del Certificado" style="position: relative; width: 100%; height: 100%; border: none; z-index: 2; background: transparent;"></iframe>
       </div>
     </div>
 
@@ -1582,7 +1624,11 @@ def get_certificate_pdf(
             content = storage.get_certificate_pdf(certificate_id)
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Certificate PDF not found") from exc
-    return Response(content=content, media_type="application/pdf")
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline; filename=certificate.pdf"}
+    )
 
 
 @app.get("/certificate/{certificate_id}/verify")
@@ -2052,6 +2098,12 @@ def admin_login_post(
     
     add_audit_log(settings, "login_success", username, client_ip, "Inicio de sesión administrativo exitoso")
     
+    is_secure = (
+        request.url.scheme == "https" or 
+        request.headers.get("x-forwarded-proto") == "https" or
+        (hasattr(settings, "public_base_url") and str(settings.public_base_url).startswith("https"))
+    )
+    
     response = RedirectResponse(url="/admin/dashboard", status_code=303)
     response.set_cookie(
         key="admin_token",
@@ -2059,7 +2111,7 @@ def admin_login_post(
         httponly=True,
         max_age=86400,
         samesite="lax",
-        secure=False
+        secure=is_secure
     )
     response.set_cookie(
         key="admin_csrf",
@@ -2067,7 +2119,7 @@ def admin_login_post(
         httponly=False,  # allows JS client to read and pass in headers/AJAX
         max_age=86400,
         samesite="lax",
-        secure=False
+        secure=is_secure
     )
     return response
 
@@ -2191,12 +2243,17 @@ def admin_dashboard_data(
     if not csrf_token:
         import secrets
         csrf_token = secrets.token_hex(16)
+        is_secure = (
+            request.url.scheme == "https" or 
+            request.headers.get("x-forwarded-proto") == "https" or
+            (hasattr(settings, "public_base_url") and str(settings.public_base_url).startswith("https"))
+        )
         response.set_cookie(
             "admin_csrf",
             csrf_token,
             httponly=True,
             samesite="lax",
-            secure=request.url.scheme == "https"
+            secure=is_secure
         )
         
     from .db import list_certificates as db_list, get_revocation_list, list_api_keys, list_audit_logs

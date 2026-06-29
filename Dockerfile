@@ -1,5 +1,6 @@
 # Stage 1: Build Preact App
 FROM node:20-alpine AS frontend-builder
+RUN apk add --no-cache git
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install
