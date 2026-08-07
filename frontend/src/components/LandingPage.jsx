@@ -316,6 +316,9 @@ export function LandingPage() {
         }
       `}</style>
 
+      {/* Fullscreen Three.js 3D WebGL Blockchain Background */}
+      <ThreeDBlockchainCanvas verifying={verifying} isDarkMode={isDarkMode} />
+
       {/* Decorative Blur Orbs */}
       <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full theme-primary-light-bg blur-[120px] pointer-events-none"></div>
       <div class="absolute bottom-[20%] right-[-10%] w-[600px] h-[600px] rounded-full theme-accent-light-bg blur-[150px] pointer-events-none"></div>
@@ -350,12 +353,12 @@ export function LandingPage() {
 
       {/* Hero Section with High-Res Campus Background Banner */}
       <section class="relative max-w-6xl mx-auto px-6 pt-12 pb-8 text-center flex flex-col items-center overflow-hidden">
-        <div class="absolute inset-0 rounded-3xl overflow-hidden opacity-25 pointer-events-none border border-slate-800/50">
+        <div class="absolute inset-0 rounded-3xl overflow-hidden opacity-20 pointer-events-none border border-slate-800/50">
           <img src="/assets/utcj_campus_hero.jpg" alt="Campus UTCJ" class="w-full h-full object-cover filter brightness-75 contrast-125 scale-105" />
           <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent"></div>
         </div>
 
-        <div class="relative z-10 flex flex-col items-center">
+        <div class="relative z-10 flex flex-col items-center py-6">
           <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold theme-primary-light-bg theme-primary-text border mb-6 backdrop-blur-xl animate-pulse shadow-lg" style={{ borderColor: `${palette.green}44` }}>
             <span class="w-2 h-2 rounded-full theme-primary-bg"></span>
             Seguridad e Integridad Descentralizada • UTCJ
@@ -366,11 +369,6 @@ export function LandingPage() {
           <p class="text-sm lg:text-md text-slate-300 mt-5 max-w-2xl leading-relaxed drop-shadow-md">
             Valida al instante la legitimidad de tus certificados académicos. Comprueba firmas digitales, árboles de Merkle y anclajes en la blockchain de Ethereum sin intermediarios.
           </p>
-
-          {/* Interactive 3D WebGL Three.js Canvas */}
-          <div class="w-full max-w-xl mt-8">
-            <ThreeDBlockchainCanvas verifying={verifying} result={result} isDarkMode={isDarkMode} />
-          </div>
         </div>
       </section>
 
