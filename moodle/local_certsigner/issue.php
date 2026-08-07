@@ -30,7 +30,7 @@ try {
         $dbman->create_table($table);
     }
 } catch (Exception $ex) {
-    // Ignore if table exists or permission issue
+    // Ignore if table exists
 }
 
 $apiurl = get_config('local_certsigner', 'api_base_url');
@@ -47,6 +47,29 @@ if (empty($apikey)) {
 $action = optional_param('action', '', PARAM_ALPHA);
 $notice = '';
 
+// Handle Revocation Action
+if ($action === 'revoke' && confirm_sesskey()) {
+    $cert_id = required_param('certid', PARAM_ALPHANUMEXT);
+    
+    // Call API revoke endpoint
+    $ch = curl_init($apiurl . '/certificate/' . $cert_id . '/revoke');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array('reason' => 'Revocado desde Moodle por el Administrador')));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Content-Type: application/json',
+        'X-API-Key: ' . $apikey
+    ));
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    $resp = curl_exec($ch);
+    $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $DB->delete_records('certsigner_issued', array('certificateid' => $cert_id));
+    $notice = "La microcredencial " . htmlspecialchars($cert_id) . " ha sido revocada exitosamente en Blockchain.";
+}
+
+// Handle Batch Issuance Action
 if ($action === 'issue' && confirm_sesskey()) {
     $userids = optional_param_array('userids', array(), PARAM_INT);
     if (!empty($userids)) {
@@ -60,7 +83,6 @@ if ($action === 'issue' && confirm_sesskey()) {
             $given_name = $name_parts[0];
             $family_name = isset($name_parts[1]) && !empty($name_parts[1]) ? $name_parts[1] : $name_parts[0];
 
-            // Prepare correct nested API payload
             $payload = array(
                 'recipient' => array(
                     'given_name' => $given_name,
@@ -83,7 +105,6 @@ if ($action === 'issue' && confirm_sesskey()) {
                 'chain' => get_config('local_certsigner', 'chain_default') ?: 'ethereum_mainnet'
             );
 
-            // Call API
             $ch = curl_init($apiurl . '/issue');
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_POST, true);
@@ -118,13 +139,15 @@ if ($action === 'issue' && confirm_sesskey()) {
 }
 
 echo $OUTPUT->header();
+echo '<div style="display:flex; justify-space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap;">';
 echo $OUTPUT->heading(get_string('pluginname', 'local_certsigner') . ' — ' . $course->fullname);
+echo '<a href="/local/certsigner/reports.php" class="btn btn-secondary" style="margin-left:auto; font-weight:bold;">📊 Ver Dashboard de Métricas</a>';
+echo '</div>';
 
 if ($notice) {
     echo $OUTPUT->notification($notice, 'notifysuccess');
 }
 
-// Fetch enrolled users
 $enrolled = get_enrolled_users($context);
 $already_issued = array();
 try {
@@ -156,11 +179,19 @@ foreach ($enrolled as $u) {
     echo '<td style="padding:10px;">' . $u->email . '</td>';
     
     if ($has_cert) {
+        $revoke_url = new moodle_url('/local/certsigner/issue.php', array(
+            'id' => $course->id,
+            'action' => 'revoke',
+            'certid' => $cert_id,
+            'sesskey' => sesskey()
+        ));
+
         echo '<td style="padding:10px;"><span class="badge badge-success" style="background:#28a745; color:white; padding:4px 8px; border-radius:4px;">Emitido</span></td>';
         echo '<td style="padding:10px;">
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:8px; align-items:center;">
                 <a href="' . $apiurl . '/render/' . $cert_id . '" target="_blank" class="btn btn-sm btn-primary" style="background-color:#0F6A52; border-color:#0F6A52; color:white; font-weight:bold; padding:4px 10px; text-decoration:none; border-radius:4px;">📄 Ver Certificado Firmado</a>
                 <a href="' . $apiurl . '/certificate/' . $cert_id . '/pdf" target="_blank" class="btn btn-sm btn-secondary" style="background-color:#0F3E4A; border-color:#0F3E4A; color:white; padding:4px 10px; text-decoration:none; border-radius:4px;">📥 PDF Oficial</a>
+                <a href="' . $revoke_url . '" onclick="return confirm(\'¿Estás seguro de que deseas revocar esta credencial en la Blockchain?\');" class="btn btn-sm btn-danger" style="background-color:#dc3545; border-color:#dc3545; color:white; padding:4px 8px; text-decoration:none; border-radius:4px; font-size:11px;">🚫 Revocar</a>
             </div>
         </td>';
     } else {

@@ -2,7 +2,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_certsigner';
-$plugin->version   = 2026080706;
+$plugin->version   = 2026080707;
 $plugin->requires  = 2022041900;
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '2.2.0';
+$plugin->release   = '2.3.0';

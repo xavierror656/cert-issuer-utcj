@@ -5397,6 +5397,25 @@ def admin_revoke_cert(
     return Response(status_code=200)
 
 
+class RevokeApiRequest(BaseModel):
+    reason: str = "Revocado mediante API / Moodle"
+
+
+@app.post("/certificate/{certificate_id}/revoke")
+def api_revoke_certificate(
+    certificate_id: str,
+    body: RevokeApiRequest | None = None,
+    user: User = Depends(require_roles(["admin", "issuer"]))
+) -> dict[str, str]:
+    reason = body.reason if body and body.reason else "Revocado mediante API"
+    revocation_time = datetime.now(timezone.utc).isoformat()
+    success = revoke_certificate(settings, certificate_id, reason, revocation_time)
+    if not success:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    add_audit_log(settings, "revoke_certificate", user.username, "API", f"Certificado revocado: {certificate_id} - Razón: {reason}")
+    return {"status": "revoked", "certificate_id": certificate_id, "reason": reason}
+
+
 @app.post("/admin/api-keys")
 def admin_create_api_key(
     request: Request,
