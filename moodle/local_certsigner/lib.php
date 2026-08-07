@@ -18,3 +18,36 @@ function local_certsigner_extend_navigation_course($navigation, $course, $contex
         $navigation->add_node($node);
     }
 }
+
+/**
+ * Add "Mis Microcredenciales UTCJ" to user profile page
+ */
+function local_certsigner_myprofile_navigation(core_user\output\myprofile\tree $tree, $user, $iscurrentuser, $course) {
+    if (isloggedin() && !isguestuser() && ($iscurrentuser || has_capability('moodle/user:viewdetails', context_system::instance()))) {
+        $url = new moodle_url('/local/certsigner/mycertificates.php');
+        $node = new core_user\output\myprofile\node(
+            'miscellaneous',
+            'local_certsigner_mycerts',
+            '🎓 Mis Microcredenciales UTCJ',
+            null,
+            $url
+        );
+        $tree->add_node($node);
+    }
+}
+
+/**
+ * Extend user navigation tree
+ */
+function local_certsigner_extend_navigation_user($navigation, $user, $context) {
+    if (isloggedin() && !isguestuser()) {
+        $url = new moodle_url('/local/certsigner/mycertificates.php');
+        $navigation->add(
+            '🎓 Mis Microcredenciales UTCJ',
+            $url,
+            navigation_node::TYPE_SETTING,
+            null,
+            'my_certsigner_certs'
+        );
+    }
+}
