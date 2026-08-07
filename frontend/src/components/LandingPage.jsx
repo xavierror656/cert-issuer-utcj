@@ -323,7 +323,7 @@ export function LandingPage() {
       {/* Navigation Header */}
       <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-xl sticky top-0 z-40 px-6 lg:px-16 py-4 flex items-center justify-between shadow-lg">
         <div class="flex items-center gap-3">
-          <img src="/assets/utcj_logo_hd.jpg" alt="Logo UTCJ" class="h-11 w-11 rounded-full object-cover border-2 border-emerald-600/50 shadow-md" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/assets/logo_utcj.png" alt="Logo UTCJ Oficial" class="h-10 object-contain filter brightness-110" />
           <div>
             <h1 class="text-md font-black tracking-tight text-white font-outfit">UTCJ Microcredentials</h1>
             <p class="text-[10px] text-emerald-400 font-bold tracking-wider uppercase">Universidad Tecnológica de Ciudad Juárez</p>
