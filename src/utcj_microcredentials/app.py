@@ -177,6 +177,26 @@ def get_icons() -> Response:
     raise HTTPException(status_code=404, detail="Not Found")
 
 
+@app.get("/local_certsigner.zip")
+def download_moodle_plugin() -> Response:
+    possible_paths = [
+        Path("/app/data/utcj_microcredentials/local_certsigner.zip"),
+        Path(settings.data_dir) / "local_certsigner.zip",
+        Path("/home/ubuntu/local_certsigner.zip"),
+        frontend_dist_dir / "local_certsigner.zip"
+    ]
+    for zip_path in possible_paths:
+        if zip_path.exists():
+            return FileResponse(
+                str(zip_path),
+                media_type="application/zip",
+                headers={"Content-Disposition": "attachment; filename=local_certsigner.zip"}
+            )
+    raise HTTPException(status_code=404, detail="Plugin zip file not found")
+
+
+
+
 
 @app.get("/health")
 def health() -> dict[str, str]:

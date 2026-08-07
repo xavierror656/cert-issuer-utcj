@@ -1,0 +1,22 @@
+<?php
+$string['pluginname'] = 'Certificados Firmados UTCJ';
+$string['api_base_url'] = 'URL base de la API';
+$string['api_base_url_desc'] = 'URL base del servidor de microcredenciales UTCJ.';
+$string['auth_mode'] = 'Modo de Autenticación';
+$string['auth_mode_desc'] = 'Forma en que Moodle se autentica con la API.';
+$string['api_key'] = 'Clave API (X-API-Key)';
+$string['api_key_desc'] = 'Valor enviado en el encabezado X-API-Key.';
+$string['bearer_token'] = 'Token Bearer';
+$string['chain_default'] = 'Cadena Blockchain por defecto';
+$string['issuer_name_default'] = 'Nombre emisor por defecto';
+$string['issuer_id_default'] = 'ID emisor por defecto';
+$string['timeout_seconds'] = 'Tiempo de espera (segundos)';
+$string['max_retries'] = 'Reintentos máximos';
+$string['enable_manual_issue'] = 'Habilitar emisión manual';
+$string['enable_batch_issue'] = 'Habilitar emisión en lote';
+$string['enable_auto_issue'] = 'Habilitar emisión automática';
+$string['enable_revoke'] = 'Habilitar revocación';
+$string['store_issued_json'] = 'Guardar JSON emitido';
+$string['pdf_access_mode'] = 'Modo de acceso PDF';
+$string['view_signed_cert'] = 'Ver Certificado Firmado';
+$string['download_pdf'] = 'Descargar PDF';
