@@ -55,19 +55,32 @@ if ($action === 'issue' && confirm_sesskey()) {
             $user = $DB->get_record('user', array('id' => $uid));
             if (!$user) continue;
 
-            // Prepare API payload
+            $full_name = fullname($user);
+            $name_parts = explode(' ', trim($full_name), 2);
+            $given_name = $name_parts[0];
+            $family_name = isset($name_parts[1]) && !empty($name_parts[1]) ? $name_parts[1] : $name_parts[0];
+
+            // Prepare correct nested API payload
             $payload = array(
-                'recipient_name' => fullname($user),
-                'recipient_email' => $user->email,
-                'credential_title' => $course->fullname . ' certificate',
-                'course_name' => $course->fullname,
-                'hours' => 120,
-                'grade' => 'Aprobado',
-                'chain' => get_config('local_certsigner', 'chain_default') ?: 'ethereum_mainnet',
+                'recipient' => array(
+                    'given_name' => $given_name,
+                    'family_name' => $family_name,
+                    'email' => $user->email
+                ),
+                'credential' => array(
+                    'title' => $course->fullname,
+                    'description' => 'Certificado de finalización del curso ' . $course->fullname . ' emitido por la UTCJ.',
+                    'issue_date' => date('Y-m-d'),
+                    'course_name' => $course->fullname,
+                    'hours' => 120,
+                    'skills' => array('Competencias Profesionales', 'Conocimientos Especializados'),
+                    'grade' => 'Aprobado'
+                ),
                 'issuer' => array(
                     'name' => get_config('local_certsigner', 'issuer_name_default') ?: 'Universidad Tecnologica de Ciudad Juarez',
                     'id' => get_config('local_certsigner', 'issuer_id_default') ?: 'https://www.utcj.edu.mx'
-                )
+                ),
+                'chain' => get_config('local_certsigner', 'chain_default') ?: 'ethereum_mainnet'
             );
 
             // Call API
