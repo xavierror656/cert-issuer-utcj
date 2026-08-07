@@ -1710,7 +1710,7 @@ def verify_certificate_endpoint(certificate_id: str) -> JSONResponse:
 
 @app.get("/certificate/{certificate_id}/openbadge")
 def get_openbadge_v3(certificate_id: str) -> JSONResponse:
-    cert_data = storage.load_certificate(certificate_id)
+    cert_data = storage.get_certificate(certificate_id)
     if not cert_data:
         raise HTTPException(status_code=404, detail="Certificate not found")
 
@@ -1745,7 +1745,7 @@ def get_openbadge_v3(certificate_id: str) -> JSONResponse:
 
 @app.get("/certificate/{certificate_id}/wallet-pass")
 def get_wallet_pass(certificate_id: str) -> JSONResponse:
-    cert_data = storage.load_certificate(certificate_id)
+    cert_data = storage.get_certificate(certificate_id)
     if not cert_data:
         raise HTTPException(status_code=404, detail="Certificate not found")
 
