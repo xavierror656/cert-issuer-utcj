@@ -139,9 +139,12 @@ if ($action === 'issue' && confirm_sesskey()) {
 }
 
 echo $OUTPUT->header();
-echo '<div style="display:flex; justify-space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap;">';
+echo '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">';
 echo $OUTPUT->heading(get_string('pluginname', 'local_certsigner') . ' — ' . $course->fullname);
-echo '<a href="/local/certsigner/reports.php" class="btn btn-secondary" style="margin-left:auto; font-weight:bold;">📊 Ver Dashboard de Métricas</a>';
+echo '<div style="display:flex; gap:10px; margin-left:auto;">';
+echo '<a href="/local/certsigner/download_batch_zip.php?id=' . $course->id . '" class="btn btn-secondary" style="background:#0F3E4A; border:none; font-weight:bold; color:white; padding:8px 14px; border-radius:6px; text-decoration:none;">📦 Descargar expedientes en ZIP</a>';
+echo '<a href="/local/certsigner/reports.php" class="btn btn-primary" style="background:#0F6A52; border:none; font-weight:bold; color:white; padding:8px 14px; border-radius:6px; text-decoration:none;">📊 Dashboard de Métricas</a>';
+echo '</div>';
 echo '</div>';
 
 if ($notice) {
