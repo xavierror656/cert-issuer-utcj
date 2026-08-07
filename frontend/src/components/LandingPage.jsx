@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import confetti from 'canvas-confetti';
+import ThreeDBlockchainCanvas from './ThreeDBlockchainCanvas';
 
 // Ensure basic fallback for Buffer if required by blockchain libraries in browser
 if (typeof window !== 'undefined' && !window.Buffer) {
@@ -32,6 +33,30 @@ export function LandingPage() {
     gold: '#B88A3B',
     silver: '#8FA3AD'
   });
+
+  const [cameraActive, setCameraActive] = useState(false);
+
+  const startCameraScanner = async () => {
+    setCameraActive(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      setTimeout(() => {
+        const video = document.getElementById('qr-video');
+        if (video) video.srcObject = stream;
+      }, 200);
+    } catch (err) {
+      console.error("Camera access denied or unavailable:", err);
+    }
+  };
+
+  const stopCameraScanner = () => {
+    setCameraActive(false);
+    const video = document.getElementById('qr-video');
+    if (video && video.srcObject) {
+      video.srcObject.getTracks().forEach(track => track.stop());
+      video.srcObject = null;
+    }
+  };
 
   useEffect(() => {
     // Check dark mode preference
@@ -296,45 +321,57 @@ export function LandingPage() {
       <div class="absolute bottom-[20%] right-[-10%] w-[600px] h-[600px] rounded-full theme-accent-light-bg blur-[150px] pointer-events-none"></div>
 
       {/* Navigation Header */}
-      <header class="border-b border-slate-800 bg-slate-900/40 backdrop-blur-xl sticky top-0 z-40 px-6 lg:px-16 py-4 flex items-center justify-between">
+      <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-xl sticky top-0 z-40 px-6 lg:px-16 py-4 flex items-center justify-between shadow-lg">
         <div class="flex items-center gap-3">
-          <img src="/assets/logos/utcj-logo.png" alt="Logo UTCJ" class="h-10 object-contain filter brightness-110" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/assets/utcj_logo_hd.jpg" alt="Logo UTCJ" class="h-11 w-11 rounded-full object-cover border-2 border-emerald-600/50 shadow-md" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
           <div>
-            <h1 class="text-md font-bold tracking-tight text-white font-outfit">UTCJ Microcredentials</h1>
-            <p class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Validador Criptográfico</p>
+            <h1 class="text-md font-black tracking-tight text-white font-outfit">UTCJ Microcredentials</h1>
+            <p class="text-[10px] text-emerald-400 font-bold tracking-wider uppercase">Universidad Tecnológica de Ciudad Juárez</p>
           </div>
         </div>
 
         <div class="flex items-center gap-4">
           <button 
             onClick={handleThemeToggle}
-            class="p-2 rounded-full border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors"
+            class="p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-300 transition-all shadow-inner"
             title="Alternar Modo Oscuro"
           >
             {isDarkMode ? (
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             ) : (
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+              <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
             )}
           </button>
-          <a href="/admin/dashboard" class="btn btn-sm btn-ghost border border-slate-800 text-xs font-bold text-slate-300 rounded-lg">
+          <a href="/admin/dashboard" class="btn btn-sm theme-primary-bg text-white border-none font-bold text-xs rounded-xl shadow-lg shadow-emerald-900/30">
             Consola Administrativa
           </a>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section class="max-w-6xl mx-auto px-6 pt-16 pb-12 text-center flex flex-col items-center">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold theme-primary-light-bg theme-primary-text border mb-6 backdrop-blur-md animate-pulse" style={{ borderColor: `${palette.green}33` }}>
-          <span class="w-1.5 h-1.5 rounded-full theme-primary-bg"></span>
-          Seguridad e Integridad Descentralizada
-        </span>
-        <h2 class="text-4xl lg:text-6xl font-black font-outfit text-white tracking-tight leading-tight max-w-4xl">
-          Verificación de Microcredenciales de la <span class="theme-gradient-text">UTCJ</span>
-        </h2>
-        <p class="text-sm lg:text-md text-slate-400 mt-6 max-w-2xl leading-relaxed">
-          Valida al instante la legitimidad de tus certificados académicos. Comprueba firmas digitales, árboles de Merkle y anclajes en la blockchain de Ethereum sin intermediarios.
-        </p>
+      {/* Hero Section with High-Res Campus Background Banner */}
+      <section class="relative max-w-6xl mx-auto px-6 pt-12 pb-8 text-center flex flex-col items-center overflow-hidden">
+        <div class="absolute inset-0 rounded-3xl overflow-hidden opacity-25 pointer-events-none border border-slate-800/50">
+          <img src="/assets/utcj_campus_hero.jpg" alt="Campus UTCJ" class="w-full h-full object-cover filter brightness-75 contrast-125 scale-105" />
+          <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent"></div>
+        </div>
+
+        <div class="relative z-10 flex flex-col items-center">
+          <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold theme-primary-light-bg theme-primary-text border mb-6 backdrop-blur-xl animate-pulse shadow-lg" style={{ borderColor: `${palette.green}44` }}>
+            <span class="w-2 h-2 rounded-full theme-primary-bg"></span>
+            Seguridad e Integridad Descentralizada • UTCJ
+          </span>
+          <h2 class="text-4xl lg:text-6xl font-black font-outfit text-white tracking-tight leading-tight max-w-4xl drop-shadow-2xl">
+            Verificación de Microcredenciales de la <span class="theme-gradient-text">UTCJ</span>
+          </h2>
+          <p class="text-sm lg:text-md text-slate-300 mt-5 max-w-2xl leading-relaxed drop-shadow-md">
+            Valida al instante la legitimidad de tus certificados académicos. Comprueba firmas digitales, árboles de Merkle y anclajes en la blockchain de Ethereum sin intermediarios.
+          </p>
+
+          {/* Interactive 3D WebGL Three.js Canvas */}
+          <div class="w-full max-w-xl mt-8">
+            <ThreeDBlockchainCanvas verifying={verifying} result={result} isDarkMode={isDarkMode} />
+          </div>
+        </div>
       </section>
 
       {/* Main Validation Zone */}
@@ -344,7 +381,7 @@ export function LandingPage() {
           {/* View Tab Buttons */}
           <div class="flex border-b border-slate-800 mb-8 pb-4">
             <button 
-              onClick={() => { setActiveMode('upload'); setError(null); setResult(null); }}
+              onClick={() => { setActiveMode('upload'); setError(null); setResult(null); stopCameraScanner(); }}
               class={`flex-1 text-center py-2.5 font-bold text-sm border-b-2 transition-all ${
                 activeMode === 'upload' ? 'theme-primary-border text-white' : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
@@ -352,12 +389,20 @@ export function LandingPage() {
               📄 Cargar Archivo JSON
             </button>
             <button 
-              onClick={() => { setActiveMode('id'); setError(null); setResult(null); }}
+              onClick={() => { setActiveMode('id'); setError(null); setResult(null); stopCameraScanner(); }}
               class={`flex-1 text-center py-2.5 font-bold text-sm border-b-2 transition-all ${
                 activeMode === 'id' ? 'theme-primary-border text-white' : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
-              🔍 Buscar por ID de Credencial
+              🔍 Buscar por ID
+            </button>
+            <button 
+              onClick={() => { setActiveMode('qr'); setError(null); setResult(null); startCameraScanner(); }}
+              class={`flex-1 text-center py-2.5 font-bold text-sm border-b-2 transition-all ${
+                activeMode === 'qr' ? 'theme-primary-border text-white' : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              📷 Escanear QR
             </button>
           </div>
 
@@ -426,6 +471,34 @@ export function LandingPage() {
               </div>
               <p class="text-[11px] text-slate-500 leading-snug">El identificador hash o GUID es único y se encuentra listado en el reporte de la credencial o en tu recibo de emisión.</p>
             </form>
+          )}
+
+          {/* Mode 3: Live Camera QR Scanner */}
+          {activeMode === 'qr' && !verifying && !result && (
+            <div class="space-y-4 text-center">
+              <div class="border-2 border-dashed border-slate-800 rounded-2xl p-6 bg-slate-950/40 flex flex-col items-center justify-center min-h-[220px]">
+                {cameraActive ? (
+                  <div class="w-full flex flex-col items-center">
+                    <video id="qr-video" class="w-full max-w-sm rounded-xl border border-emerald-500/40 bg-black aspect-video object-cover shadow-xl mb-3" autoPlay playsInline></video>
+                    <p class="text-xs text-emerald-400 font-bold animate-pulse">📷 Apunta la cámara al código QR...</p>
+                    <button onClick={stopCameraScanner} class="btn btn-xs btn-outline border-slate-700 text-slate-400 mt-3 hover:bg-slate-800">Detener Cámara</button>
+                  </div>
+                ) : (
+                  <div class="flex flex-col items-center">
+                    <div class="w-16 h-16 rounded-2xl theme-primary-light-bg border theme-primary-text flex items-center justify-center mb-4" style={{ borderColor: `${palette.green}33` }}>
+                      <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      </svg>
+                    </div>
+                    <h4 class="font-bold text-white text-md">Escáner de Cámara QR en Vivo</h4>
+                    <p class="text-xs text-slate-400 mt-2 max-w-xs">Apunta la cámara de tu celular o computadora al código QR impreso en el certificado para validar automáticamente.</p>
+                    <button onClick={startCameraScanner} class="btn btn-sm mt-5 theme-primary-bg theme-primary-hover border-none text-white font-bold px-6 py-2 rounded-xl shadow-lg shadow-emerald-700/20" style={{ boxShadow: `0 4px 12px ${palette.green}33` }}>
+                      Activar Cámara Escáner
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Real-time Verification Stepper */}
