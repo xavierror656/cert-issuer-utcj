@@ -14,6 +14,25 @@ $PAGE->set_context($context);
 $PAGE->set_title(get_string('pluginname', 'local_certsigner'));
 $PAGE->set_heading($course->fullname);
 
+// Auto-create table if missing
+try {
+    $dbman = $DB->get_manager();
+    if (!$dbman->table_exists('certsigner_issued')) {
+        $table = new xmldb_table('certsigner_issued');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('certificateid', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('certificateurl', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('pdfurl', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('timeissued', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $dbman->create_table($table);
+    }
+} catch (Exception $ex) {
+    // Ignore if table exists or permission issue
+}
+
 $apiurl = get_config('local_certsigner', 'api_base_url');
 if (empty($apiurl)) {
     $apiurl = 'https://utcjmicro.javierflores.software';
@@ -94,8 +113,12 @@ if ($notice) {
 
 // Fetch enrolled users
 $enrolled = get_enrolled_users($context);
-$already_issued = $DB->get_records_menu('certsigner_issued', array('courseid' => $course->id), '', 'userid, certificateid');
-$issued_records = $DB->get_records('certsigner_issued', array('courseid' => $course->id));
+$already_issued = array();
+try {
+    $already_issued = $DB->get_records_menu('certsigner_issued', array('courseid' => $course->id), '', 'userid, certificateid');
+} catch (Exception $e) {
+    $already_issued = array();
+}
 
 echo '<form method="post" action="issue.php?id=' . $course->id . '">';
 echo '<input type="hidden" name="sesskey" value="' . sesskey() . '">';
