@@ -22,7 +22,7 @@ echo '<div style="max-width:980px; margin:0 auto; padding:10px;">';
 echo '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">';
 echo '<div>';
 echo '<h2 style="color:#0F6A52; font-weight:bold; margin:0;">🎓 Mis Microcredenciales Verificables</h2>';
-echo '<p style="color:#6c757d; font-size:14px; margin:4px 0 0 0;">Consulta, comparte en LinkedIn y descarga tus certificados académicos anclados en la Blockchain por la UTCJ.</p>';
+echo '<p style="color:#6c757d; font-size:14px; margin:4px 0 0 0;">Consulta, comparte en LinkedIn, exporta Open Badges v3 y descarga tus certificados anclados en la Blockchain por la UTCJ.</p>';
 echo '</div>';
 echo '<span style="background:rgba(15,106,82,0.1); border:1px solid rgba(15,106,82,0.2); color:#0F6A52; font-weight:bold; font-size:12px; padding:6px 14px; border-radius:20px;">Ethereum Mainnet Verified</span>';
 echo '</div>';
@@ -44,6 +44,8 @@ if (empty($my_certs)) {
         
         $cert_url = !empty($c->certificateurl) ? $c->certificateurl : ($apiurl . '/render/' . $c->certificateid);
         $pdf_url = !empty($c->pdfurl) ? $c->pdfurl : ($apiurl . '/certificate/' . $c->certificateid . '/pdf');
+        $openbadge_url = $apiurl . '/certificate/' . $c->certificateid . '/openbadge';
+        $wallet_pass_url = $apiurl . '/certificate/' . $c->certificateid . '/wallet-pass';
         $qr_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' . urlencode($cert_url);
 
         // LinkedIn Add to Profile URL
@@ -68,7 +70,7 @@ if (empty($my_certs)) {
         echo '</div>';
         echo '</div>';
         
-        echo '<div style="display:flex; flex-direction:column; gap:8px; margin-top:16px; border-t:1px solid #f1f5f9; padding-top:14px;">';
+        echo '<div style="display:flex; flex-direction:column; gap:8px; margin-top:16px; border-top:1px solid #f1f5f9; padding-top:14px;">';
         echo '<a href="' . $linkedin_url . '" target="_blank" style="background:#0077b5; color:white; text-align:center; padding:9px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; gap:6px;">';
         echo '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.25V10.9H6.46M7.86 6.74a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24z"/></svg>';
         echo 'Añadir a mi perfil de LinkedIn</a>';
@@ -77,6 +79,12 @@ if (empty($my_certs)) {
         echo '<a href="' . $cert_url . '" target="_blank" style="flex:1; background:#0F6A52; color:white; text-align:center; padding:8px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:12px;">📄 Ver Certificado</a>';
         echo '<a href="' . $pdf_url . '" target="_blank" style="flex:1; background:#0F3E4A; color:white; text-align:center; padding:8px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:12px;">📥 PDF Oficial</a>';
         echo '</div>';
+
+        echo '<div style="display:flex; gap:8px;">';
+        echo '<a href="' . $openbadge_url . '" target="_blank" style="flex:1; background:#334155; color:white; text-align:center; padding:6px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:11px;">🏅 Open Badge v3</a>';
+        echo '<a href="' . $wallet_pass_url . '" target="_blank" style="flex:1; background:#B88A3B; color:white; text-align:center; padding:6px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:11px;">🪪 Cartera Digital Pass</a>';
+        echo '</div>';
+
         echo '</div>';
         
         echo '</div>';

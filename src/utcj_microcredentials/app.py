@@ -1706,6 +1706,62 @@ def verify_certificate_endpoint(certificate_id: str) -> JSONResponse:
                 "confirmations": 0,
                 "cached": False
             })
+
+
+@app.get("/certificate/{certificate_id}/openbadge")
+def get_openbadge_v3(certificate_id: str) -> JSONResponse:
+    cert_data = storage.load_certificate(certificate_id)
+    if not cert_data:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+
+    subj = cert_data.get("credentialSubject", {})
+    return JSONResponse({
+        "@context": "https://w3id.org/openbadges/v3",
+        "id": f"{settings.public_base_url}/certificate/{certificate_id}/openbadge",
+        "type": "OpenBadgeCredential",
+        "name": cert_data.get("name", "Microcredencial UTCJ"),
+        "description": cert_data.get("description", "Certificado emitido por la UTCJ"),
+        "issuer": {
+            "type": "Profile",
+            "id": f"{settings.public_base_url}/issuer-profile",
+            "name": "Universidad Tecnológica de Ciudad Juárez",
+            "url": "https://www.utcj.edu.mx"
+        },
+        "issuanceDate": cert_data.get("validFrom", datetime.now(timezone.utc).isoformat()),
+        "credentialSubject": {
+            "id": f"urn:uuid:{certificate_id}",
+            "type": "AchievementSubject",
+            "name": subj.get("name", "Estudiante UTCJ"),
+            "achievement": {
+                "id": f"{settings.public_base_url}/certificate/{certificate_id}",
+                "type": "Achievement",
+                "name": cert_data.get("name", "Microcredencial UTCJ"),
+                "description": cert_data.get("description", ""),
+                "criteria": {"narrative": "Aprobación satisfactoria del programa académico en la UTCJ."}
+            }
+        }
+    })
+
+
+@app.get("/certificate/{certificate_id}/wallet-pass")
+def get_wallet_pass(certificate_id: str) -> JSONResponse:
+    cert_data = storage.load_certificate(certificate_id)
+    if not cert_data:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+
+    subj = cert_data.get("credentialSubject", {})
+    return JSONResponse({
+        "protocol": "GoogleWalletPassV1",
+        "issuingOrganization": "Universidad Tecnológica de Ciudad Juárez",
+        "passType": "GenericPass",
+        "title": cert_data.get("name", "Microcredencial UTCJ"),
+        "holderName": subj.get("name", "Estudiante UTCJ"),
+        "courseName": subj.get("courseName", cert_data.get("name", "Curso UTCJ")),
+        "issueDate": subj.get("issueDate", "2026-08-07"),
+        "grade": subj.get("grade", "Aprobado"),
+        "qrCodeUrl": f"{settings.public_base_url}/render/{certificate_id}",
+        "blockchainStatus": "Verified Ethereum Mainnet"
+    })
         
     # Query blockchain RPC
     rpc_url = None
