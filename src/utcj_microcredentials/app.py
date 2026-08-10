@@ -1177,6 +1177,10 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
         Vista Diploma Web
       </button>
+      <button id="tab-pvc" class="tab-btn" onclick="showView('pvc')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+        Carnet Físico (PVC)
+      </button>
       <button id="tab-pdf" class="tab-btn" onclick="showView('pdf')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
         Vista Documento PDF
@@ -1208,6 +1212,15 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
           {revocation_banner}
           
           <div class="watermark-bg">UTCJ</div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid rgba(184, 138, 59, 0.4); padding-bottom: 12px; margin-bottom: 18px;">
+            <div style="font-size: 11px; font-weight: 800; color: var(--primary); letter-spacing: 1.5px; text-transform: uppercase;">
+              CLAVE CCT: 08MSU0017R • SEPyD / CGUTyP
+            </div>
+            <div style="font-size: 12px; font-weight: 800; color: var(--accent); font-family: monospace; background: rgba(184, 138, 59, 0.1); padding: 4px 12px; border-radius: 8px; border: 1px solid rgba(184, 138, 59, 0.3);">
+              FOLIO REGISTRO: {folio_num}
+            </div>
+          </div>
           
           <div style="font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: var(--primary); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px;">
             Microcredencial Verificable UTCJ
@@ -1240,18 +1253,81 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
             </div>
             
             <div class="cert-seal">
-              <svg width="68" height="68" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="46" fill="none" stroke="{accent_color}" stroke-width="3"/>
-                <circle cx="50" cy="50" r="40" fill="none" stroke="{accent_color}" stroke-width="1.5" stroke-dasharray="4 2"/>
-                <circle cx="50" cy="50" r="34" fill="{primary_color}" fill-opacity="0.08"/>
-                <text x="50" y="46" font-family="'Outfit', sans-serif" font-weight="800" font-size="14" fill="{accent_color}" text-anchor="middle">UTCJ</text>
-                <text x="50" y="62" font-family="'Inter', sans-serif" font-weight="700" font-size="9" fill="{primary_color}" text-anchor="middle">SELLO OFICIAL</text>
+              <svg width="78" height="78" viewBox="0 0 100 100" style="filter: drop-shadow(0 4px 12px rgba(184,138,59,0.3));">
+                <circle cx="50" cy="50" r="48" fill="url(#sealGoldGrad)" stroke="{accent_color}" stroke-width="2"/>
+                <circle cx="50" cy="50" r="42" fill="none" stroke="{accent_color}" stroke-width="1.5" stroke-dasharray="3 2"/>
+                <circle cx="50" cy="50" r="35" fill="{primary_color}" fill-opacity="0.12"/>
+                <text x="50" y="44" font-family="'Outfit', sans-serif" font-weight="900" font-size="14" fill="{accent_color}" text-anchor="middle">UTCJ</text>
+                <text x="50" y="58" font-family="'Inter', sans-serif" font-weight="800" font-size="7.5" fill="{primary_color}" text-anchor="middle">SELLO SECO</text>
+                <text x="50" y="68" font-family="'Inter', sans-serif" font-weight="700" font-size="6.5" fill="{accent_color}" text-anchor="middle">INSTITUCIONAL</text>
               </svg>
             </div>
             
             <div class="signature-block">
-              <div class="signature-pic" style="color: var(--primary);">Firma Criptográfica</div>
-              <div class="signature-title">Firma Tecnológica</div>
+              <div class="signature-pic" style="color: var(--primary); font-family: 'Playfair Display', serif; font-style: italic; font-size: 16px; display: flex; align-items: center; justify-content: center;">
+                Edgar Omar Lara E.
+              </div>
+              <div class="signature-title">
+                <strong>Mtro. Edgar Omar Lara Enríquez</strong><br>
+                Dir. de Administración Escolar
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive 3D PVC Physical Card View -->
+      <div id="pvc-card-view" style="display: none; padding: 40px; text-align: center;">
+        <h3 style="font-family: 'Outfit', sans-serif; color: var(--secondary); margin-bottom: 8px; font-size: 22px;">Simulación de Carnet Físico en PVC Institucional</h3>
+        <p style="color: var(--text-light); font-size: 14px; margin-bottom: 32px; max-width: 650px; margin-left: auto; margin-right: auto;">Representación visual de la credencial física de alta durabilidad para acceso a campus, laboratorios e identificación estudiantil.</p>
+
+        <div style="display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; perspective: 1000px;">
+          <!-- Front Card Side -->
+          <div style="width: 420px; height: 260px; background: linear-gradient(135deg, var(--secondary) 0%, #062831 100%); border-radius: 20px; border: 2px solid var(--accent); padding: 20px; color: white; text-align: left; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow: hidden;">
+            <div style="position: absolute; top: -50px; right: -50px; width: 180px; height: 180px; background: var(--primary); opacity: 0.2; border-radius: 50%;"></div>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(184, 138, 59, 0.4); padding-bottom: 12px; margin-bottom: 14px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <svg width="32" height="32" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="46" fill="#0F3E4A" stroke="#B88A3B" stroke-width="4"/>
+                  <path d="M30 40 L50 25 L70 40 L70 65 L50 78 L30 65 Z" fill="#0F6A52" stroke="#B88A3B" stroke-width="2"/>
+                  <text x="50" y="56" font-family="'Outfit', sans-serif" font-weight="900" font-size="16" fill="#FFFFFF" text-anchor="middle">UTCJ</text>
+                </svg>
+                <div>
+                  <div style="font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 800; color: white;">UTCJ MICROCREDENTIALS</div>
+                  <div style="font-size: 9px; color: var(--accent); font-weight: 700;">CCT: 08MSU0017R • CHIHUAHUA</div>
+                </div>
+              </div>
+              <span style="font-family: monospace; font-size: 10px; color: var(--accent); font-weight: 700; background: rgba(184, 138, 59, 0.15); padding: 3px 8px; border-radius: 6px;">{folio_num}</span>
+            </div>
+
+            <div style="font-size: 10px; text-transform: uppercase; color: var(--text-light); letter-spacing: 1px; font-weight: 700;">Titular de la Credencial</div>
+            <div style="font-family: 'Outfit', sans-serif; font-size: 19px; font-weight: 800; color: white; margin-bottom: 10px;">{recipient_name}</div>
+
+            <div style="font-size: 10px; text-transform: uppercase; color: var(--text-light); letter-spacing: 1px; font-weight: 700;">Programa de Competencias</div>
+            <div style="font-size: 13px; font-weight: 700; color: var(--green-light); margin-bottom: 14px;">{title}</div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; position: absolute; bottom: 16px; left: 20px; right: 20px;">
+              <div>
+                <div style="font-size: 9px; color: var(--text-light);">Vigencia / Emisión</div>
+                <div style="font-size: 11px; font-family: monospace; font-weight: 700;">{issue_date}</div>
+              </div>
+              <div style="display: flex; items-center; gap: 6px; background: rgba(16, 185, 129, 0.2); border: 1px solid #10B981; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; color: #10B981;">
+                <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
+                CHIP BLOCKCHAIN ACTIVE
+              </div>
+            </div>
+          </div>
+
+          <!-- Back Card Side -->
+          <div style="width: 420px; height: 260px; background: linear-gradient(135deg, #091E24 0%, #051419 100%); border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); padding: 0; color: white; text-align: left; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow: hidden;">
+            <div style="width: 100%; height: 42px; background: #111827; margin-top: 20px;"></div>
+            <div style="padding: 16px 20px;">
+              <div style="background: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 10px; color: var(--accent); display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span>GUID: {certificate_id[:18]}...</span>
+                <span>W3C v3.2</span>
+              </div>
+              <p style="font-size: 9.5px; color: var(--text-light); line-height: 1.5; margin-bottom: 12px;">Esta tarjeta física es propiedad de la Universidad Tecnológica de Ciudad Juárez. Su validez criptográfica inmutable está respaldada en la red de Ethereum Mainnet.</p>
+              <div style="font-size: 10px; color: var(--gold); font-weight: 700;">Rectoría Dr. Óscar Fidencio Ibáñez Hernández</div>
             </div>
           </div>
         </div>
@@ -1400,20 +1476,24 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
   <script>
     function showView(viewName) {{
       const webCert = document.getElementById('web-certificate-view');
+      const pvcCert = document.getElementById('pvc-card-view');
       const pdfCert = document.getElementById('pdf-certificate-view');
       const socialCert = document.getElementById('social-card-view');
       const verifyPdfView = document.getElementById('verify-pdf-view');
       
       const tabWeb = document.getElementById('tab-web');
+      const tabPvc = document.getElementById('tab-pvc');
       const tabPdf = document.getElementById('tab-pdf');
       const tabSocial = document.getElementById('tab-social');
       const tabVerifyPdf = document.getElementById('tab-verify-pdf');
       
-      [webCert, pdfCert, socialCert, verifyPdfView].forEach(el => {{ if(el) el.style.display = 'none'; }});
-      [tabWeb, tabPdf, tabSocial, tabVerifyPdf].forEach(btn => {{ if(btn) btn.classList.remove('tab-active'); }});
+      [webCert, pvcCert, pdfCert, socialCert, verifyPdfView].forEach(el => {{ if(el) el.style.display = 'none'; }});
+      [tabWeb, tabPvc, tabPdf, tabSocial, tabVerifyPdf].forEach(btn => {{ if(btn) btn.classList.remove('tab-active'); }});
       
       if (viewName === 'web') {{
         webCert.style.display = 'block'; tabWeb.classList.add('tab-active');
+      }} else if (viewName === 'pvc') {{
+        pvcCert.style.display = 'block'; tabPvc.classList.add('tab-active');
       }} else if (viewName === 'pdf') {{
         pdfCert.style.display = 'block'; tabPdf.classList.add('tab-active');
       }} else if (viewName === 'social') {{

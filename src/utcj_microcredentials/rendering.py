@@ -435,17 +435,17 @@ def render_certificate_pdf(certificate: dict[str, Any], settings: Settings, tran
         c.setFillColor(HexColor(PALETTE["green"]))
         c.drawCentredString(seal_x, sig_y - 8, "SELLO OFICIAL")
 
-    # Right Signature: Criptográfica
-    c.setFont("Helvetica-Oblique", 12)
+    # Right Signature: Director de Administración Escolar
+    c.setFont("Helvetica-Oblique", 11)
     c.setFillColor(HexColor(PALETTE["teal"]))
-    c.drawCentredString(width - 200, sig_y + 15, "Firma Digital")
+    c.drawCentredString(width - 200, sig_y + 15, "Edgar Omar Lara E.")
     c.line(width - 280, sig_y + 8, width - 120, sig_y + 8)
-    c.setFont("Helvetica-Bold", 9)
+    c.setFont("Helvetica-Bold", 8.5)
     c.setFillColor(HexColor(PALETTE["graphite"]))
-    c.drawCentredString(width - 200, sig_y - 4, "Firma Criptográfica")
-    c.setFont("Helvetica", 8)
+    c.drawCentredString(width - 200, sig_y - 4, "Mtro. Edgar Omar Lara Enríquez")
+    c.setFont("Helvetica", 7.5)
     c.setFillColor(HexColor(PALETTE["silver"]))
-    c.drawCentredString(width - 200, sig_y - 15, "Validación Blockchain")
+    c.drawCentredString(width - 200, sig_y - 15, "Dir. de Administración Escolar")
 
     # MEJORA 4: QR Code and Technical Metadata Block con Status Badge
     qr = qrcode.make(settings.certificate_render_url(subject["certificateId"]))
