@@ -148,6 +148,11 @@ class Settings:
 
     @classmethod
     def load(cls) -> "Settings":
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
         project_root = Path(__file__).resolve().parents[2]
         data_dir = Path(os.getenv("DATA_DIR", project_root / "data" / "utcj_microcredentials"))
         public_dir = data_dir / "public"

@@ -456,6 +456,25 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Microcredencial Verificable UTCJ - {recipient_name}</title>
+  <meta name="description" content="Microcredencial académica verificable en la Blockchain de Ethereum emitida por la Universidad Tecnológica de Ciudad Juárez a favor de {recipient_name}.">
+
+  <!-- Open Graph / LinkedIn / Facebook / WhatsApp -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{settings.public_base_url}/render/{certificate_id}">
+  <meta property="og:title" content="Microcredencial UTCJ • {recipient_name}">
+  <meta property="og:description" content="Acreditación de competencias en '{title}' emitida por la UTCJ y verificada criptográficamente en Ethereum Mainnet.">
+  <meta property="og:image" content="{settings.public_base_url}/certificate/{certificate_id}/social-card.svg">
+  <meta property="og:image:type" content="image/svg+xml">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="{settings.public_base_url}/render/{certificate_id}">
+  <meta name="twitter:title" content="Microcredencial UTCJ • {recipient_name}">
+  <meta name="twitter:description" content="Acreditación de competencias en '{title}' emitida por la UTCJ y verificada criptográficamente en Ethereum.">
+  <meta name="twitter:image" content="{settings.public_base_url}/certificate/{certificate_id}/social-card.svg">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -1157,6 +1176,14 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
         Vista Documento PDF
       </button>
+      <button id="tab-social" class="tab-btn" onclick="showView('social')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+        Tarjeta Redes (OpenGraph)
+      </button>
+      <button id="tab-verify-pdf" class="tab-btn" onclick="showView('verifypdf')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        Verificador PDF (SHA-256)
+      </button>
     </div>
     <a href="{pdf_url}" target="_blank" class="quick-pdf-btn" style="text-decoration: none; display: flex; align-items: center; gap: 8px; background: var(--primary); color: white; padding: 8px 16px; border-radius: 12px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 10px rgba(15, 106, 82, 0.2); transition: var(--transition);">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
@@ -1173,18 +1200,22 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         <div class="corner-decor corner-br"></div>
         
         <div class="certificate-inner">
-          <div id="card-glare"></div>
-          <div class="watermark-bg">UTCJ</div>
-          
-          <img src="/assets/logos/utcj-logo.png" alt="Logo UTCJ" class="cert-badge-logo" onerror="this.style.display='none'">
-          <div class="cert-institution">Universidad Tecnológica de Ciudad Juárez</div>
-          
-          <div class="cert-granted-to">Otorga la presente Microcredencial Verificable a:</div>
-          <div class="cert-recipient">{recipient_name}</div>
-          
           {revocation_banner}
           
-          <div class="cert-text">Por haber acreditado satisfactoriamente los conocimientos y competencias del programa académico:</div>
+          <div class="watermark-bg">UTCJ</div>
+          
+          <div style="font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: var(--primary); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px;">
+            Microcredencial Verificable UTCJ
+          </div>
+          
+          <div class="cert-institution">Universidad Tecnológica de Ciudad Juárez</div>
+          
+          <div class="cert-granted-to">Otorga la presente credencial académica a:</div>
+          
+          <div class="cert-recipient">{recipient_name}</div>
+          
+          <div class="cert-text">Por haber acreditado satisfactoriamente las competencias del programa:</div>
+          
           <div class="cert-title">{title}</div>
           
           <div class="cert-skills-title">Competencias Acreditadas</div>
@@ -1197,15 +1228,19 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
               <div class="signature-pic">
                 {signature_html}
               </div>
-              <div class="signature-title">Dr. Óscar F. Ibáñez H.<br>Rectoría UTCJ</div>
+              <div class="signature-title">
+                <strong>Dr. Óscar Fidencio Ibáñez Hernández</strong><br>
+                Rector de la UTCJ
+              </div>
             </div>
             
             <div class="cert-seal">
-              <svg width="74" height="74" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="46" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="2, 2"/>
-                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
-                <path d="M 50 15 L 55 35 L 75 35 L 60 48 L 65 68 L 50 55 L 35 68 L 40 48 L 25 35 L 45 35 Z" fill="var(--accent)" opacity="0.8"/>
-                <text x="50" y="85" font-size="6" font-family="'Outfit', sans-serif" font-weight="700" fill="var(--accent)" text-anchor="middle" letter-spacing="1">UTCJ OFICIAL</text>
+              <svg width="68" height="68" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="46" fill="none" stroke="{accent_color}" stroke-width="3"/>
+                <circle cx="50" cy="50" r="40" fill="none" stroke="{accent_color}" stroke-width="1.5" stroke-dasharray="4 2"/>
+                <circle cx="50" cy="50" r="34" fill="{primary_color}" fill-opacity="0.08"/>
+                <text x="50" y="46" font-family="'Outfit', sans-serif" font-weight="800" font-size="14" fill="{accent_color}" text-anchor="middle">UTCJ</text>
+                <text x="50" y="62" font-family="'Inter', sans-serif" font-weight="700" font-size="9" fill="{primary_color}" text-anchor="middle">SELLO OFICIAL</text>
               </svg>
             </div>
             
@@ -1217,12 +1252,51 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         </div>
       </div>
 
-      <div id="pdf-certificate-view" class="pdf-frame" style="position: relative;">
+      <!-- PDF Frame View -->
+      <div id="pdf-certificate-view" class="pdf-frame" style="display: none; position: relative;">
         <div class="pdf-fallback-message" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; background: rgba(248, 250, 249, 0.85); border-radius: 12px; z-index: 1;">
           <p style="margin-bottom: 16px; font-size: 15px; color: var(--secondary); font-weight: 500;">Si el visor de PDF no se carga automáticamente en tu dispositivo, puedes abrirlo directamente:</p>
           <a href="{pdf_url}" target="_blank" class="btn btn-primary" style="padding: 10px 24px; text-decoration: none;">Ver PDF Oficial en Nueva Pestaña</a>
         </div>
         <iframe src="{pdf_url}#toolbar=0" title="Visualizador de PDF del Certificado" style="position: relative; width: 100%; height: 100%; border: none; z-index: 2; background: transparent;"></iframe>
+      </div>
+
+      <!-- Social Share Card View -->
+      <div id="social-card-view" style="display: none; padding: 32px; text-align: center;">
+        <h3 style="font-family: 'Outfit', sans-serif; color: var(--secondary); margin-bottom: 12px; font-size: 20px;">Tarjeta Oficial para Compartir en Redes Sociales (1200x630 px)</h3>
+        <p style="color: var(--text-light); font-size: 14px; margin-bottom: 24px; max-width: 600px; margin-left: auto; margin-right: auto;">Optimizada para vistas previas en LinkedIn, X/Twitter y portafolios digitales con código QR de verificación instantánea.</p>
+        
+        <div style="background: #F3F7F5; padding: 16px; border-radius: 16px; border: 1px solid rgba(15, 62, 74, 0.1); display: inline-block; max-width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.06);">
+          <img src="/certificate/{certificate_id}/social-card.svg" alt="Social Share Card" style="width: 100%; max-width: 800px; height: auto; border-radius: 12px; display: block;">
+        </div>
+
+        <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <a href="https://www.linkedin.com/sharing/share-offsite/?url={settings.public_base_url}/render/{certificate_id}" target="_blank" class="btn btn-primary" style="background: #0A66C2; border-color: #0A66C2; text-decoration: none; padding: 10px 20px;">
+            💼 Compartir en LinkedIn
+          </a>
+          <a href="https://twitter.com/intent/tweet?text=¡Orgullosamente%20acredité%20mi%20Microcredencial%20Verificable%20en%20la%20UTCJ!&url={settings.public_base_url}/render/{certificate_id}" target="_blank" class="btn btn-primary" style="background: #1DA1F2; border-color: #1DA1F2; text-decoration: none; padding: 10px 20px;">
+            🐦 Compartir en X (Twitter)
+          </a>
+          <a href="/certificate/{certificate_id}/social-card.svg" download="utcj-microcredential-card.svg" class="btn btn-secondary" style="padding: 10px 20px;">
+            ⬇️ Descargar Tarjeta SVG
+          </a>
+        </div>
+      </div>
+
+      <!-- Drag & Drop PDF Hash Verification View -->
+      <div id="verify-pdf-view" style="display: none; padding: 40px; text-align: center;">
+        <h3 style="font-family: 'Outfit', sans-serif; color: var(--secondary); margin-bottom: 8px; font-size: 22px;">Verificador de Integridad de PDF Impreso (SHA-256)</h3>
+        <p style="color: var(--text-light); font-size: 14px; margin-bottom: 28px; max-width: 650px; margin-left: auto; margin-right: auto;">Arrastra o selecciona cualquier archivo PDF para verificar criptográficamente si es 100% auténtico o si ha sido modificado.</p>
+        
+        <div id="pdf-drop-zone" style="border: 2px dashed var(--primary); border-radius: 20px; padding: 48px 24px; background: rgba(15, 106, 82, 0.03); cursor: pointer; transition: all 0.3s ease; max-width: 650px; margin: 0 auto;">
+          <div style="font-size: 44px; margin-bottom: 12px;">📄</div>
+          <h4 style="font-family: 'Outfit', sans-serif; font-size: 18px; color: var(--primary-dark); margin-bottom: 8px;">Arrastra aquí tu certificado PDF impreso o descargado</h4>
+          <p style="font-size: 13px; color: var(--text-light); margin-bottom: 16px;">o haz clic para examinar archivos en tu equipo</p>
+          <input type="file" id="pdf-file-input" accept="application/pdf" style="display: none;">
+          <button onclick="document.getElementById('pdf-file-input').click()" class="btn btn-primary" style="padding: 8px 20px;">Seleccionar Archivo PDF</button>
+        </div>
+
+        <div id="pdf-verify-result" style="display: none; max-width: 650px; margin: 24px auto 0; padding: 20px; border-radius: 16px; text-align: left;"></div>
       </div>
     </div>
 
@@ -1314,16 +1388,117 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
     function showView(viewName) {{
       const webCert = document.getElementById('web-certificate-view');
       const pdfCert = document.getElementById('pdf-certificate-view');
+      const socialCert = document.getElementById('social-card-view');
+      const verifyPdfView = document.getElementById('verify-pdf-view');
+      
       const tabWeb = document.getElementById('tab-web');
       const tabPdf = document.getElementById('tab-pdf');
+      const tabSocial = document.getElementById('tab-social');
+      const tabVerifyPdf = document.getElementById('tab-verify-pdf');
+      
+      [webCert, pdfCert, socialCert, verifyPdfView].forEach(el => {{ if(el) el.style.display = 'none'; }});
+      [tabWeb, tabPdf, tabSocial, tabVerifyPdf].forEach(btn => {{ if(btn) btn.classList.remove('tab-active'); }});
+      
       if (viewName === 'web') {{
-        webCert.style.display = 'block'; pdfCert.style.display = 'none';
-        tabWeb.classList.add('tab-active'); tabPdf.classList.remove('tab-active');
-      }} else {{
-        webCert.style.display = 'none'; pdfCert.style.display = 'block';
-        tabWeb.classList.remove('tab-active'); tabPdf.classList.add('tab-active');
+        webCert.style.display = 'block'; tabWeb.classList.add('tab-active');
+      }} else if (viewName === 'pdf') {{
+        pdfCert.style.display = 'block'; tabPdf.classList.add('tab-active');
+      }} else if (viewName === 'social') {{
+        socialCert.style.display = 'block'; tabSocial.classList.add('tab-active');
+      }} else if (viewName === 'verifypdf') {{
+        verifyPdfView.style.display = 'block'; tabVerifyPdf.classList.add('tab-active');
       }}
     }}
+
+    // Drag & Drop PDF Verifier Handler
+    document.addEventListener('DOMContentLoaded', () => {{
+      const dropZone = document.getElementById('pdf-drop-zone');
+      const fileInput = document.getElementById('pdf-file-input');
+      const resultDiv = document.getElementById('pdf-verify-result');
+
+      if (!dropZone || !fileInput) return;
+
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {{
+        dropZone.addEventListener(eventName, (e) => {{ e.preventDefault(); e.stopPropagation(); }}, false);
+      }});
+
+      ['dragenter', 'dragover'].forEach(eventName => {{
+        dropZone.addEventListener(eventName, () => {{ dropZone.style.borderColor = 'var(--accent)'; dropZone.style.background = 'rgba(184, 138, 59, 0.08)'; }}, false);
+      }});
+
+      ['dragleave', 'drop'].forEach(eventName => {{
+        dropZone.addEventListener(eventName, () => {{ dropZone.style.borderColor = 'var(--primary)'; dropZone.style.background = 'rgba(15, 106, 82, 0.03)'; }}, false);
+      }});
+
+      dropZone.addEventListener('drop', (e) => {{
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) handlePdfFile(files[0]);
+      }}, false);
+
+      fileInput.addEventListener('change', (e) => {{
+        if (e.target.files.length > 0) handlePdfFile(e.target.files[0]);
+      }});
+
+      function handlePdfFile(file) {{
+        if (file.type !== 'application/pdf') {{
+          alert('Por favor selecciona un archivo PDF válido.');
+          return;
+        }}
+
+        resultDiv.style.display = 'block';
+        resultDiv.style.background = '#EFF6FF';
+        resultDiv.style.border = '1px solid #3B82F6';
+        resultDiv.innerHTML = '<p style="color: #1E40AF; font-weight: 600; text-align: center;">⏳ Calculando firma SHA-256 e inspeccionando integridad con el servidor...</p>';
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/verify-pdf-hash', {{
+          method: 'POST',
+          body: formData
+        }})
+        .then(r => r.json().then(data => ({{ status: r.status, body: data }})))
+        .then(res => {{
+          if (res.status === 200 && res.body.status === 'authentic') {{
+            resultDiv.style.background = '#ECFDF5';
+            resultDiv.style.border = '2px solid #10B981';
+            resultDiv.innerHTML = `
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                <div style="font-size: 28px;">✅</div>
+                <div>
+                  <h4 style="color: #065F46; font-size: 16px; font-weight: 700;">DOCUMENTO PDF 100% AUTÉNTICO Y LEGÍTIMO</h4>
+                  <p style="color: #047857; font-size: 13px;">${{res.body.details}}</p>
+                </div>
+              </div>
+              <div style="font-size: 12px; color: #065F46; background: rgba(16, 185, 129, 0.1); padding: 10px; border-radius: 8px; font-family: monospace; word-break: break-all;">
+                <strong>Graduado:</strong> ${{res.body.recipient_name}}<br>
+                <strong>Programa:</strong> ${{res.body.credential_title}}<br>
+                <strong>Hash SHA-256:</strong> ${{res.body.sha256}}<br>
+                <strong>Anclaje Blockchain:</strong> ${{res.body.blockchain_tx}}
+              </div>
+            `;
+          }} else {{
+            resultDiv.style.background = '#FEF2F2';
+            resultDiv.style.border = '2px solid #EF4444';
+            resultDiv.innerHTML = `
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="font-size: 28px;">⚠️</div>
+                <div>
+                  <h4 style="color: #991B1B; font-size: 16px; font-weight: 700;">NO SE PUDO VERIFICAR LA AUTENTICIDAD DEL PDF</h4>
+                  <p style="color: #B91C1C; font-size: 13px;">${{res.body.details || 'El archivo PDF no coincide con ningún certificado emitido por la institución.'}}</p>
+                </div>
+              </div>
+            `;
+          }}
+        }})
+        .catch(err => {{
+          resultDiv.style.background = '#FEF2F2';
+          resultDiv.style.border = '1px solid #EF4444';
+          resultDiv.innerHTML = '<p style="color: #991B1B; text-align: center;">Error al conectar con el servicio de verificación por Hash.</p>';
+        }});
+      }}
+    }});
     
     function copyToClipboard(text, tooltipId) {{
       navigator.clipboard.writeText(text).then(() => {{
@@ -1688,7 +1863,7 @@ def verify_certificate_endpoint(certificate_id: str) -> JSONResponse:
             "cached": False
         })
         
-    is_valid_tx = bool(re.match(r"^0x[a-fA-F0-9]{64}$", transaction_id))
+    is_valid_tx = bool(re.match(r"^(0x)?[a-fA-F0-9]{64}$", transaction_id))
     if not is_valid_tx:
         # Check if in development/safe mode or has mock placeholder
         is_dev = settings.app_env == "development" or getattr(settings, "safe_mode", False) or "not been issued" in transaction_id.lower() or "mock" in transaction_id.lower() or "test" in transaction_id.lower()
@@ -1707,62 +1882,9 @@ def verify_certificate_endpoint(certificate_id: str) -> JSONResponse:
                 "cached": False
             })
 
+    # Ensure transaction_id has 0x prefix for JSON-RPC
+    rpc_tx_id = transaction_id if transaction_id.startswith("0x") else f"0x{transaction_id}"
 
-@app.get("/certificate/{certificate_id}/openbadge")
-def get_openbadge_v3(certificate_id: str) -> JSONResponse:
-    cert_data = storage.get_certificate(certificate_id)
-    if not cert_data:
-        raise HTTPException(status_code=404, detail="Certificate not found")
-
-    subj = cert_data.get("credentialSubject", {})
-    return JSONResponse({
-        "@context": "https://w3id.org/openbadges/v3",
-        "id": f"{settings.public_base_url}/certificate/{certificate_id}/openbadge",
-        "type": "OpenBadgeCredential",
-        "name": cert_data.get("name", "Microcredencial UTCJ"),
-        "description": cert_data.get("description", "Certificado emitido por la UTCJ"),
-        "issuer": {
-            "type": "Profile",
-            "id": f"{settings.public_base_url}/issuer-profile",
-            "name": "Universidad Tecnológica de Ciudad Juárez",
-            "url": "https://www.utcj.edu.mx"
-        },
-        "issuanceDate": cert_data.get("validFrom", datetime.now(timezone.utc).isoformat()),
-        "credentialSubject": {
-            "id": f"urn:uuid:{certificate_id}",
-            "type": "AchievementSubject",
-            "name": subj.get("name", "Estudiante UTCJ"),
-            "achievement": {
-                "id": f"{settings.public_base_url}/certificate/{certificate_id}",
-                "type": "Achievement",
-                "name": cert_data.get("name", "Microcredencial UTCJ"),
-                "description": cert_data.get("description", ""),
-                "criteria": {"narrative": "Aprobación satisfactoria del programa académico en la UTCJ."}
-            }
-        }
-    })
-
-
-@app.get("/certificate/{certificate_id}/wallet-pass")
-def get_wallet_pass(certificate_id: str) -> JSONResponse:
-    cert_data = storage.get_certificate(certificate_id)
-    if not cert_data:
-        raise HTTPException(status_code=404, detail="Certificate not found")
-
-    subj = cert_data.get("credentialSubject", {})
-    return JSONResponse({
-        "protocol": "GoogleWalletPassV1",
-        "issuingOrganization": "Universidad Tecnológica de Ciudad Juárez",
-        "passType": "GenericPass",
-        "title": cert_data.get("name", "Microcredencial UTCJ"),
-        "holderName": subj.get("name", "Estudiante UTCJ"),
-        "courseName": subj.get("courseName", cert_data.get("name", "Curso UTCJ")),
-        "issueDate": subj.get("issueDate", "2026-08-07"),
-        "grade": subj.get("grade", "Aprobado"),
-        "qrCodeUrl": f"{settings.public_base_url}/render/{certificate_id}",
-        "blockchainStatus": "Verified Ethereum Mainnet"
-    })
-        
     # Query blockchain RPC
     rpc_url = None
     if chain == "ethereum_mainnet":
@@ -1786,7 +1908,7 @@ def get_wallet_pass(certificate_id: str) -> JSONResponse:
         receipt_payload = {
             "jsonrpc": "2.0",
             "method": "eth_getTransactionReceipt",
-            "params": [transaction_id],
+            "params": [rpc_tx_id],
             "id": 1
         }
         
@@ -1865,6 +1987,176 @@ def get_wallet_pass(certificate_id: str) -> JSONResponse:
             "confirmations": 1,
             "cached": False
         })
+
+
+@app.get("/certificate/{certificate_id}/openbadge")
+def get_openbadge_v3(certificate_id: str) -> JSONResponse:
+    cert_data = storage.get_certificate(certificate_id)
+    if not cert_data:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+
+    subj = cert_data.get("credentialSubject", {})
+    return JSONResponse({
+        "@context": "https://w3id.org/openbadges/v3",
+        "id": f"{settings.public_base_url}/certificate/{certificate_id}/openbadge",
+        "type": "OpenBadgeCredential",
+        "name": cert_data.get("name", "Microcredencial UTCJ"),
+        "description": cert_data.get("description", "Certificado emitido por la UTCJ"),
+        "issuer": {
+            "type": "Profile",
+            "id": f"{settings.public_base_url}/issuer-profile",
+            "name": "Universidad Tecnológica de Ciudad Juárez",
+            "url": "https://www.utcj.edu.mx"
+        },
+        "issuanceDate": cert_data.get("validFrom", datetime.now(timezone.utc).isoformat()),
+        "credentialSubject": {
+            "id": f"urn:uuid:{certificate_id}",
+            "type": "AchievementSubject",
+            "name": subj.get("name", "Estudiante UTCJ"),
+            "achievement": {
+                "id": f"{settings.public_base_url}/certificate/{certificate_id}",
+                "type": "Achievement",
+                "name": cert_data.get("name", "Microcredencial UTCJ"),
+                "description": cert_data.get("description", ""),
+                "criteria": {"narrative": "Aprobación satisfactoria del programa académico en la UTCJ."}
+            }
+        }
+    })
+
+
+@app.get("/certificate/{certificate_id}/wallet-pass")
+def get_wallet_pass(certificate_id: str) -> JSONResponse:
+    cert_data = storage.get_certificate(certificate_id)
+    if not cert_data:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+
+    subj = cert_data.get("credentialSubject", {})
+    return JSONResponse({
+        "protocol": "GoogleWalletPassV1",
+        "issuingOrganization": "Universidad Tecnológica de Ciudad Juárez",
+        "passType": "GenericPass",
+        "title": cert_data.get("name", "Microcredencial UTCJ"),
+        "holderName": subj.get("name", "Estudiante UTCJ"),
+        "courseName": subj.get("courseName", cert_data.get("name", "Curso UTCJ")),
+        "issueDate": subj.get("issueDate", "2026-08-07"),
+        "grade": subj.get("grade", "Aprobado"),
+        "qrCodeUrl": f"{settings.public_base_url}/render/{certificate_id}",
+        "blockchainStatus": "Verified Ethereum Mainnet"
+    })
+
+
+@app.get("/certificate/{certificate_id}/social-card.svg")
+def get_social_card_svg(certificate_id: str) -> Response:
+    from .rendering import render_social_card_svg
+    from .db import get_certificate as db_get_cert
+    
+    cert_data = storage.get_certificate(certificate_id)
+    if not cert_data:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+
+    db_cert = db_get_cert(settings, certificate_id)
+    tx_id = db_cert.get("transaction_id", "N/A") if db_cert else "N/A"
+    svg_content = render_social_card_svg(cert_data, settings, tx_id)
+    return Response(content=svg_content, media_type="image/svg+xml")
+
+
+@app.post("/verify-pdf-hash")
+def verify_pdf_hash(
+    file: UploadFile = File(...)
+) -> JSONResponse:
+    import hashlib
+    from .db import list_certificates as db_list_certificates
+    
+    file.file.seek(0)
+    content = file.file.read()
+    pdf_hash = hashlib.sha256(content).hexdigest()
+    
+    # Search all certificates in public_dir for PDF match
+    certs = db_list_certificates(settings, limit=1000)
+    for c in certs:
+        cert_id = c["id"]
+        try:
+            stored_pdf = storage.get_certificate_pdf(cert_id)
+            stored_hash = hashlib.sha256(stored_pdf).hexdigest()
+            if stored_hash == pdf_hash:
+                return JSONResponse({
+                    "status": "authentic",
+                    "details": "El documento PDF impreso es 100% auténtico e idéntico al emitido originalmente.",
+                    "certificate_id": cert_id,
+                    "recipient_name": c["recipient_name"],
+                    "credential_title": c["credential_title"],
+                    "sha256": pdf_hash,
+                    "blockchain_tx": c["transaction_id"]
+                })
+        except Exception:
+            continue
+
+    return JSONResponse({
+        "status": "unverified",
+        "details": "El hash SHA-256 del documento PDF no coincide con ningún certificado oficial emitido.",
+        "sha256": pdf_hash
+    }, status_code=404)
+
+
+@app.get("/certificate/{certificate_id}/offline-bundle.zip")
+def download_offline_bundle(certificate_id: str) -> Response:
+    import zipfile
+    import io
+    
+    cert_data = storage.get_certificate(certificate_id)
+    if not cert_data:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+
+    pdf_bytes = storage.get_certificate_pdf(certificate_id)
+    json_bytes = json.dumps(cert_data, indent=2, ensure_ascii=False).encode("utf-8")
+    
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"certificate_{certificate_id}.json", json_bytes)
+        zf.writestr(f"certificate_{certificate_id}.pdf", pdf_bytes)
+        instructions = f"""UNIVERSIDAD TECNOLÓGICA DE CIUDAD JUÁREZ
+INSTRUCCIONES DE VERIFICACIÓN FUERA DE LÍNEA (OFFLINE AUDIT MANUAL)
+
+ID de Credencial: {certificate_id}
+Titular: {cert_data.get('credentialSubject', {}).get('name', 'N/A')}
+Programa: {cert_data.get('name', 'N/A')}
+Emisor: Universidad Tecnológica de Ciudad Juárez
+Rector: Dr. Óscar Fidencio Ibáñez Hernández
+
+PASOS PARA AUDITAR SIN CONEXIÓN A INTERNET:
+1. Inspeccione la estructura JSON compatible con el estándar W3C Blockcerts v3.2 en 'certificate_{certificate_id}.json'.
+2. Compruebe la firma criptográfica SHA-256 y la prueba de Merkle contenida en las propiedades de la credencial.
+3. Compare el hash SHA-256 del documento PDF 'certificate_{certificate_id}.pdf' para verificar que no ha sufrido modificaciones visuales ni impresas.
+"""
+        zf.writestr("VERIFICACION_OFFLINE.txt", instructions.encode("utf-8"))
+
+    zip_buffer.seek(0)
+    return Response(
+        content=zip_buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename=utcj_credential_{certificate_id}_offline.zip"}
+    )
+
+
+@app.get("/certificate/{certificate_id}/embed-code")
+def get_embed_code(certificate_id: str) -> JSONResponse:
+    cert_data = storage.get_certificate(certificate_id)
+    if not cert_data:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+
+    subj = cert_data.get("credentialSubject", {})
+    recipient = subj.get("name", "Graduado")
+    title = cert_data.get("name", "Microcredencial UTCJ")
+
+    iframe_code = f'<iframe src="{settings.public_base_url}/render/{certificate_id}" width="100%" height="700" frameborder="0" style="border: 1px solid #0F6A52; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);" title="Microcredencial UTCJ - {recipient}"></iframe>'
+    badge_code = f'<a href="{settings.public_base_url}/render/{certificate_id}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:#0F6A52;color:#fff;border-radius:999px;font-family:sans-serif;font-weight:bold;text-decoration:none;"><img src="{settings.public_base_url}/favicon.svg" width="20" height="20"/> Verificativa UTCJ: {title[:30]}...</a>'
+
+    return JSONResponse({
+        "certificate_id": certificate_id,
+        "iframe_code": iframe_code,
+        "badge_code": badge_code
+    })
+
 
 
 # Models for Batch Issuance and Token Authentication

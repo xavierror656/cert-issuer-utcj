@@ -118,11 +118,7 @@ export function LandingPage() {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      if (file.type === "application/json" || file.name.endsWith('.json')) {
-        await processFile(file);
-      } else {
-        setError("Por favor, selecciona un archivo JSON válido de Blockcerts.");
-      }
+      await processFile(file);
     }
   };
 
@@ -132,20 +128,58 @@ export function LandingPage() {
     }
   };
 
-  const processFile = (file) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const json = JSON.parse(e.target.result);
-          await verifyJson(json);
-        } catch (err) {
-          setError("El archivo no es un JSON válido. Revisa el formato.");
+  const processFile = async (file) => {
+    setError(null);
+    setResult(null);
+
+    if (file.name.endsWith('.pdf') || file.type === 'application/pdf') {
+      setVerifying(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const res = await fetch('/verify-pdf-hash', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (res.ok && data.status === 'authentic') {
+          confetti({
+            particleCount: 120,
+            spread: 80,
+            origin: { y: 0.65 },
+            colors: [palette.green, palette.gold, palette.teal, palette.silver]
+          });
+          setResult({
+            recipient: data.recipient_name,
+            title: data.credential_title,
+            description: "Documento PDF verificado criptográficamente por firma hash SHA-256.",
+            issueDate: "Firma Hash Válida",
+            hours: "PDF Auténtico",
+            id: data.certificate_id,
+            txId: data.blockchain_tx
+          });
+        } else {
+          setError(data.details || "El archivo PDF no coincide con ninguna credencial emitida.");
         }
-        resolve();
-      };
-      reader.readAsText(file);
-    });
+      } catch (err) {
+        setError("Error al conectar con el verificador de PDF.");
+      } finally {
+        setVerifying(false);
+      }
+    } else if (file.name.endsWith('.json') || file.type === 'application/json') {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const json = JSON.parse(e.target.result);
+            await verifyJson(json);
+          } catch (err) {
+            setError("El archivo no es un JSON válido. Revisa el formato.");
+          }
+          resolve();
+        };
+        reader.readAsText(file);
+      });
+    } else {
+      setError("Por favor, selecciona un archivo PDF o JSON válido.");
+    }
   };
 
   const handleIdSubmit = async (e) => {
@@ -323,20 +357,25 @@ export function LandingPage() {
       <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full theme-primary-light-bg blur-[120px] pointer-events-none"></div>
       <div class="absolute bottom-[20%] right-[-10%] w-[600px] h-[600px] rounded-full theme-accent-light-bg blur-[150px] pointer-events-none"></div>
 
-      {/* Navigation Header */}
-      <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-xl sticky top-0 z-40 px-6 lg:px-16 py-4 flex items-center justify-between shadow-lg">
+      {/* Homologated Navigation Header */}
+      <header class="border-b-2 border-[#B88A3B] bg-[#0F3E4A]/80 backdrop-blur-xl sticky top-0 z-40 px-6 lg:px-16 py-4 flex items-center justify-between shadow-2xl">
         <div class="flex items-center gap-3">
-          <img src="/assets/logo_utcj.png" alt="Logo UTCJ Oficial" class="h-10 object-contain filter brightness-110" />
+          <svg class="h-10 w-10 shrink-0" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="46" fill="#0F3E4A" stroke="#B88A3B" stroke-width="4"/>
+            <circle cx="50" cy="50" r="38" stroke="#B88A3B" stroke-width="1.5" stroke-dasharray="4 2"/>
+            <path d="M30 40 L50 25 L70 40 L70 65 L50 78 L30 65 Z" fill="#0F6A52" stroke="#B88A3B" stroke-width="2"/>
+            <text x="50" y="56" font-family="'Outfit', sans-serif" font-weight="900" font-size="16" fill="#FFFFFF" text-anchor="middle">UTCJ</text>
+          </svg>
           <div>
             <h1 class="text-md font-black tracking-tight text-white font-outfit">UTCJ Microcredentials</h1>
-            <p class="text-[10px] text-emerald-400 font-bold tracking-wider uppercase">Universidad Tecnológica de Ciudad Juárez</p>
+            <p class="text-[10px] text-[#B88A3B] font-bold tracking-wider uppercase">Universidad Tecnológica de Ciudad Juárez • Rectoría Dr. Óscar Fidencio Ibáñez H.</p>
           </div>
         </div>
 
         <div class="flex items-center gap-4">
           <button 
             onClick={handleThemeToggle}
-            class="p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-300 transition-all shadow-inner"
+            class="p-2.5 rounded-xl border border-[#B88A3B]/30 bg-[#0F6A52]/20 hover:bg-[#0F6A52]/40 text-slate-200 transition-all shadow-inner"
             title="Alternar Modo Oscuro"
           >
             {isDarkMode ? (
@@ -345,7 +384,7 @@ export function LandingPage() {
               <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
             )}
           </button>
-          <a href="/admin/dashboard" class="btn btn-sm theme-primary-bg text-white border-none font-bold text-xs rounded-xl shadow-lg shadow-emerald-900/30">
+          <a href="/admin/dashboard" class="btn btn-sm bg-gradient-to-r from-[#0F6A52] to-[#0A4C3B] text-white border border-[#B88A3B]/40 font-bold text-xs rounded-xl shadow-lg shadow-emerald-900/40 hover:scale-105 transition-transform">
             Consola Administrativa
           </a>
         </div>
