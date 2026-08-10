@@ -3,6 +3,10 @@ import { useState, useEffect } from 'preact/hooks';
 export function CredentialsTable({ certs, csrfToken, onRefresh, onShowToast }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [courseFilter, setCourseFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [hoursFilter, setHoursFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('date_desc');
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -13,6 +17,11 @@ export function CredentialsTable({ certs, csrfToken, onRefresh, onShowToast }) {
   const [targetCert, setTargetCert] = useState(null);
   const [revocationReason, setRevocationReason] = useState('Revocado por administración institucional');
   const [submittingRevoke, setSubmittingRevoke] = useState(false);
+
+  // Extract unique course/program names dynamically for dropdown filter
+  const uniqueCourses = Array.from(
+    new Set(certs.map(c => c.course_name || c.title).filter(Boolean))
+  ).sort();
 
   // Reset page when filters change
   const handleSearchChange = (val) => {
@@ -25,106 +34,120 @@ export function CredentialsTable({ certs, csrfToken, onRefresh, onShowToast }) {
     setCurrentPage(1);
   };
 
+  const handleCourseFilterChange = (val) => {
+    setCourseFilter(val);
+    setCurrentPage(1);
+  };
+
+  const handleDateFilterChange = (val) => {
+    setDateFilter(val);
+    setCurrentPage(1);
+  };
+
+  const handleHoursFilterChange = (val) => {
+    setHoursFilter(val);
+    setCurrentPage(1);
+  };
+
+  const handleSortByChange = (val) => {
+    setSortBy(val);
+    setCurrentPage(1);
+  };
+
   const handleItemsPerPageChange = (val) => {
     setItemsPerPage(parseInt(val, 10));
     setCurrentPage(1);
   };
 
-  // Filter logic matching the original advanced query language
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setCourseFilter('all');
+    setDateFilter('all');
+    setHoursFilter('all');
+    setSortBy('date_desc');
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = searchQuery.trim() !== '' || statusFilter !== 'all' || courseFilter !== 'all' || dateFilter !== 'all' || hoursFilter !== 'all' || sortBy !== 'date_desc';
+
+  // Filter & Sort Logic
   const filteredCerts = certs.filter(c => {
     const isRevoked = c.revoked;
     
     // Status Filter
-    const matchesFilter = statusFilter === 'all' || 
-                          (statusFilter === 'active' && !isRevoked) || 
-                          (statusFilter === 'revoked' && isRevoked);
-    
-    if (!matchesFilter) return false;
+    if (statusFilter === 'active' && isRevoked) return false;
+    if (statusFilter === 'revoked' && !isRevoked) return false;
 
-    // Search Query parsing (AND logic for tokens, support tags like hours:>20)
+    // Course / Program Filter
+    if (courseFilter !== 'all') {
+      const cCourse = c.course_name || c.title || '';
+      if (cCourse !== courseFilter) return false;
+    }
+
+    // Duration / Hours Filter
+    const hours = parseInt(c.hours || '0', 10);
+    if (hoursFilter === 'under30' && hours >= 30) return false;
+    if (hoursFilter === '30to60' && (hours < 30 || hours > 60)) return false;
+    if (hoursFilter === 'over60' && hours <= 60) return false;
+
+    // Date Range Filter
+    if (dateFilter !== 'all' && c.issued_at) {
+      const issueDate = new Date(c.issued_at);
+      const now = new Date();
+      const diffDays = (now - issueDate) / (1000 * 60 * 60 * 24);
+      
+      if (dateFilter === '24h' && diffDays > 1) return false;
+      if (dateFilter === '7d' && diffDays > 7) return false;
+      if (dateFilter === '30d' && diffDays > 30) return false;
+      if (dateFilter === '2026' && issueDate.getFullYear() !== 2026) return false;
+    }
+
+    // Search Query (Multi-token OR/AND searching across Name, Title, Course, ID, Folio)
     if (!searchQuery.trim()) return true;
 
     const tokens = searchQuery.toLowerCase().trim().split(/\s+/).filter(t => t.length > 0);
-    let matchesSearch = true;
+    const name = (c.recipient || '').toLowerCase();
+    const id = (c.id || '').toLowerCase();
+    const title = (c.title || '').toLowerCase();
+    const course = (c.course_name || '').toLowerCase();
+    const txId = (c.transaction_id || '').toLowerCase();
 
-    const name = c.recipient || '';
-    const id = c.id || '';
-    const title = c.title || '';
-    const course = c.course_name || 'N/A';
-    const hours = parseInt(c.hours || '0', 10);
-    const grade = (c.grade || '').toLowerCase();
+    return tokens.every(token => 
+      name.includes(token) || 
+      id.includes(token) || 
+      title.includes(token) || 
+      course.includes(token) ||
+      txId.includes(token)
+    );
+  });
 
-    tokens.forEach(token => {
-      if (token.includes(':')) {
-        const parts = token.split(':');
-        const key = parts[0];
-        const val = parts.slice(1).join(':');
-        
-        if (key === 'status') {
-          if (val === 'revoked' && !isRevoked) matchesSearch = false;
-          if ((val === 'active' || val === 'valid') && isRevoked) matchesSearch = false;
-        } else if (key === 'hours') {
-          const opMatch = val.match(/^([><=]*)(.*)$/);
-          const op = opMatch[1];
-          const num = parseInt(opMatch[2], 10);
-          if (!isNaN(num)) {
-            if (op === '>' && !(hours > num)) matchesSearch = false;
-            else if (op === '<' && !(hours < num)) matchesSearch = false;
-            else if (op === '>=' && !(hours >= num)) matchesSearch = false;
-            else if (op === '<=' && !(hours <= num)) matchesSearch = false;
-            else if ((op === '=' || op === '') && !(hours === num)) matchesSearch = false;
-          }
-        } else if (key === 'grade') {
-          if (!grade.includes(val)) matchesSearch = false;
-        } else if (key === 'name' || key === 'recipient') {
-          if (!name.toLowerCase().includes(val)) matchesSearch = false;
-        } else if (key === 'course' || key === 'program') {
-          if (!course.toLowerCase().includes(val)) matchesSearch = false;
-        } else if (key === 'title') {
-          if (!title.toLowerCase().includes(val)) matchesSearch = false;
-        }
-      } else if (token.includes('>') || token.includes('<') || token.includes('=')) {
-        const match = token.match(/^([a-zA-Z]+)([><=]+)(\d+)$/);
-        if (match) {
-          const key = match[1];
-          const op = match[2];
-          const num = parseInt(match[3], 10);
-          if (key === 'hours' && !isNaN(num)) {
-            if (op === '>' && !(hours > num)) matchesSearch = false;
-            else if (op === '<' && !(hours < num)) matchesSearch = false;
-            else if (op === '>=' && !(hours >= num)) matchesSearch = false;
-            else if (op === '<=' && !(hours <= num)) matchesSearch = false;
-            else if (op === '=' && !(hours === num)) matchesSearch = false;
-          }
-        } else {
-          if (!name.toLowerCase().includes(token) && 
-              !id.toLowerCase().includes(token) && 
-              !title.toLowerCase().includes(token) &&
-              !course.toLowerCase().includes(token)) {
-            matchesSearch = false;
-          }
-        }
-      } else {
-        if (!name.toLowerCase().includes(token) && 
-            !id.toLowerCase().includes(token) && 
-            !title.toLowerCase().includes(token) &&
-            !course.toLowerCase().includes(token)) {
-          matchesSearch = false;
-        }
-      }
-    });
-
-    return matchesSearch;
+  // Sorting Logic
+  const sortedCerts = [...filteredCerts].sort((a, b) => {
+    if (sortBy === 'date_asc') {
+      return new Date(a.issued_at || 0) - new Date(b.issued_at || 0);
+    }
+    if (sortBy === 'name_asc') {
+      return (a.recipient || '').localeCompare(b.recipient || '');
+    }
+    if (sortBy === 'name_desc') {
+      return (b.recipient || '').localeCompare(a.recipient || '');
+    }
+    if (sortBy === 'hours_desc') {
+      return parseInt(b.hours || 0, 10) - parseInt(a.hours || 0, 10);
+    }
+    // Default: date_desc
+    return new Date(b.issued_at || 0) - new Date(a.issued_at || 0);
   });
 
   // Pagination bounds
-  const totalMatches = filteredCerts.length;
+  const totalMatches = sortedCerts.length;
   const totalPages = Math.ceil(totalMatches / itemsPerPage) || 1;
   const activePage = currentPage > totalPages ? totalPages : currentPage;
   
   const startIndex = (activePage - 1) * itemsPerPage;
   const endIndex = Math.min(startIndex + itemsPerPage, totalMatches);
-  const pagedCerts = filteredCerts.slice(startIndex, endIndex);
+  const pagedCerts = sortedCerts.slice(startIndex, endIndex);
 
   // Term Highlighter helper
   const highlightText = (text, query) => {
@@ -196,39 +219,148 @@ export function CredentialsTable({ certs, csrfToken, onRefresh, onShowToast }) {
           <p class="text-xs text-base-content/50 mt-0.5">Historial y estado de las emisiones registradas en el emisor institucional</p>
         </div>
         <span class="badge badge-neutral font-semibold text-xs py-2 px-3">
-          {searchQuery.trim() || statusFilter !== 'all'
-            ? `Encontradas ${totalMatches} de ${certs.length} credenciales`
+          {hasActiveFilters
+            ? `Filtradas ${totalMatches} de ${certs.length} credenciales`
             : `${certs.length} credenciales en total`}
         </span>
       </div>
 
-      {/* Query Filters */}
-      <div class="p-6 border-b border-base-300 flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-        <div class="relative flex-grow max-w-lg">
-          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-base-content/40">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </span>
-          <input
-            type="text"
-            value={searchQuery}
-            onInput={(e) => handleSearchChange(e.target.value)}
-            placeholder="Buscar por alumno, certificado o ID..."
-            class="input input-sm input-bordered pl-9 w-full focus:ring-primary/20"
-          />
+      {/* Advanced Query Filters & Controls */}
+      <div class="p-6 border-b border-base-300 space-y-4">
+        {/* Row 1: Search & Reset */}
+        <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+          <div class="relative flex-grow max-w-xl">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-base-content/40">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </span>
+            <input
+              type="text"
+              value={searchQuery}
+              onInput={(e) => handleSearchChange(e.target.value)}
+              placeholder="Buscar por alumno, programa, GUID, Folio o Hash de Transacción..."
+              class="input input-sm input-bordered pl-9 pr-8 w-full focus:ring-primary/20"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => handleSearchChange('')}
+                class="absolute inset-y-0 right-0 pr-3 flex items-center text-base-content/40 hover:text-base-content"
+                title="Limpiar texto"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              class="btn btn-ghost btn-xs text-error font-semibold flex items-center gap-1 self-start md:self-auto"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              Limpiar Todos los Filtros
+            </button>
+          )}
         </div>
-        
-        <div class="flex gap-2">
+
+        {/* Row 2: Dropdown Select Filters & Sorting */}
+        <div class="flex flex-wrap gap-2.5 items-center">
+          {/* Status Filter */}
           <select
             value={statusFilter}
             onChange={(e) => handleStatusFilterChange(e.target.value)}
-            class="select select-sm select-bordered font-semibold text-base-content"
+            class="select select-sm select-bordered font-semibold text-xs text-base-content"
           >
             <option value="all">Estatus: Todos</option>
             <option value="active">Activos</option>
             <option value="revoked">Revocados</option>
           </select>
+
+          {/* Program / Course Filter */}
+          <select
+            value={courseFilter}
+            onChange={(e) => handleCourseFilterChange(e.target.value)}
+            class="select select-sm select-bordered font-semibold text-xs text-base-content max-w-xs"
+          >
+            <option value="all">Programa: Todos</option>
+            {uniqueCourses.map(course => (
+              <option key={course} value={course}>{course}</option>
+            ))}
+          </select>
+
+          {/* Date Filter */}
+          <select
+            value={dateFilter}
+            onChange={(e) => handleDateFilterChange(e.target.value)}
+            class="select select-sm select-bordered font-semibold text-xs text-base-content"
+          >
+            <option value="all">Fecha: Todas</option>
+            <option value="24h">Últimas 24 horas</option>
+            <option value="7d">Últimos 7 días</option>
+            <option value="30d">Últimos 30 días</option>
+            <option value="2026">Año 2026</option>
+          </select>
+
+          {/* Duration / Hours Filter */}
+          <select
+            value={hoursFilter}
+            onChange={(e) => handleHoursFilterChange(e.target.value)}
+            class="select select-sm select-bordered font-semibold text-xs text-base-content"
+          >
+            <option value="all">Horas: Todas</option>
+            <option value="under30">&lt; 30 horas</option>
+            <option value="30to60">30 a 60 horas</option>
+            <option value="over60">&gt; 60 horas</option>
+          </select>
+
+          {/* Sorting Dropdown */}
+          <select
+            value={sortBy}
+            onChange={(e) => handleSortByChange(e.target.value)}
+            class="select select-sm select-bordered font-semibold text-xs text-base-content ml-auto"
+          >
+            <option value="date_desc">Ordenar: Más Recientes</option>
+            <option value="date_asc">Ordenar: Más Antiguos</option>
+            <option value="name_asc">Alumno: A - Z</option>
+            <option value="name_desc">Alumno: Z - A</option>
+            <option value="hours_desc">Horas: Mayor a Menor</option>
+          </select>
+        </div>
+
+        {/* Row 3: Quick Filter Preset Chips */}
+        <div class="flex items-center gap-2 pt-1 flex-wrap">
+          <span class="text-[11px] font-bold text-base-content/50 uppercase tracking-wider">Filtros Rápidos:</span>
+          <button 
+            onClick={() => handleSearchChange('Semiconductores')}
+            class="badge badge-outline text-xs cursor-pointer hover:bg-primary hover:text-white transition-colors"
+          >
+            Semiconductores
+          </button>
+          <button 
+            onClick={() => handleSearchChange('Ciberseguridad')}
+            class="badge badge-outline text-xs cursor-pointer hover:bg-primary hover:text-white transition-colors"
+          >
+            Ciberseguridad
+          </button>
+          <button 
+            onClick={() => handleSearchChange('Barbería')}
+            class="badge badge-outline text-xs cursor-pointer hover:bg-primary hover:text-white transition-colors"
+          >
+            Barbería
+          </button>
+          <button 
+            onClick={() => handleStatusFilterChange('active')}
+            class="badge badge-outline text-xs cursor-pointer hover:bg-success hover:text-white transition-colors"
+          >
+            Solo Activos
+          </button>
+          <button 
+            onClick={() => handleStatusFilterChange('revoked')}
+            class="badge badge-outline text-xs cursor-pointer hover:bg-error hover:text-white transition-colors"
+          >
+            Solo Revocados
+          </button>
         </div>
       </div>
 
@@ -236,7 +368,7 @@ export function CredentialsTable({ certs, csrfToken, onRefresh, onShowToast }) {
       <div class="overflow-x-auto">
         {totalMatches === 0 ? (
           <div class="text-center py-12 text-base-content/40 text-sm">
-            No se encontraron credenciales que coincidan con la búsqueda.
+            No se encontraron credenciales que coincidan con la búsqueda y filtros seleccionados.
           </div>
         ) : (
           <table class="table table-md w-full text-left">
@@ -262,6 +394,7 @@ export function CredentialsTable({ certs, csrfToken, onRefresh, onShowToast }) {
                   </td>
                   <td class="py-4">
                     <div class="text-sm text-base-content">{c.title}</div>
+                    <div class="text-xs text-base-content/50 mt-0.5 font-semibold">{c.hours || 0} hrs • {c.issued_at ? c.issued_at.substring(0,10) : ''}</div>
                   </td>
                   <td class="py-4 font-mono">
                     <code class="text-xs bg-base-200 text-base-content/70 px-2 py-1 rounded-md">
@@ -282,14 +415,23 @@ export function CredentialsTable({ certs, csrfToken, onRefresh, onShowToast }) {
                     )}
                   </td>
                   <td class="py-4 text-right">
-                    <div class="flex items-center justify-end gap-2">
+                    <div class="flex items-center justify-end gap-1.5">
                       <a
                         href={`/render/${c.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         class="btn btn-outline btn-xs font-semibold"
+                        title="Ver Diploma Web"
                       >
                         Ver
+                      </a>
+                      <a
+                        href={`/certificate/${c.id}/constancia-pdf`}
+                        download
+                        class="btn btn-ghost btn-xs text-amber-500 font-semibold"
+                        title="Descargar Constancia Oficial PDF"
+                      >
+                        Constancia PDF
                       </a>
                       {c.revoked ? (
                         <span class="text-[11px] text-base-content/40 font-semibold uppercase px-1">Revocada</span>
