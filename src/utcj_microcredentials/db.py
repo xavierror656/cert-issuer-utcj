@@ -480,6 +480,38 @@ def get_certificate(settings: Any, cert_id: str) -> dict[str, Any] | None:
     return None
 
 
+def find_certificate_by_id_or_folio_or_name(settings: Any, search_term: str) -> dict[str, Any] | None:
+    search_term = search_term.strip()
+    if not search_term:
+        return None
+        
+    # 1. Exact ID query
+    cert = get_certificate(settings, search_term)
+    if cert:
+        return cert
+        
+    # 2. Check all certificates for Folio match or Recipient Name match
+    all_certs = execute_read(settings, "SELECT * FROM certificates ORDER BY issued_at DESC")
+    import hashlib
+    
+    clean_term = search_term.upper().replace("FOLIO:", "").strip()
+    for row in all_certs:
+        c_id = row["id"]
+        num = int(hashlib.md5(c_id.encode('utf-8')).hexdigest()[:6], 16) % 90000 + 10000
+        folio = f"UTCJ-2026-MC-{num}"
+        
+        if clean_term == folio or clean_term == str(num):
+            return row
+            
+    # 3. Match Recipient Name (case-insensitive substring)
+    for row in all_certs:
+        rec_name = (row.get("recipient_name") or "").lower()
+        if search_term.lower() in rec_name and len(search_term) >= 3:
+            return row
+            
+    return None
+
+
 def list_certificates(
     settings: Any, query_str: str | None = None, limit: int = 100, show_revoked: bool = True
 ) -> list[dict[str, Any]]:

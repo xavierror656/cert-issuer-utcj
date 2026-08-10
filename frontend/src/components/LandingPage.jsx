@@ -494,22 +494,22 @@ export function LandingPage() {
           {activeMode === 'id' && !verifying && !result && (
             <form onSubmit={handleIdSubmit} class="space-y-4">
               <div class="flex flex-col gap-2">
-                <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Identificador único del certificado</label>
+                <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Identificador Criptográfico, Folio Universitario o Nombre del Egresado</label>
                 <div class="flex gap-2">
                   <input 
                     type="text" 
                     value={certId}
                     onChange={(e) => setCertId(e.target.value)}
-                    placeholder="Ej. 677e3858-8ffe-4919-9597-da4089c3689f"
+                    placeholder="Ej. 6e424670..., Folio UTCJ-2026-MC-15761 o Nombre de Alumno"
                     class="flex-1 bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 font-mono"
                     style={{ focusBorderColor: palette.green }}
                   />
-                  <button type="submit" class="btn theme-primary-bg theme-primary-hover border-none text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-emerald-700/20" style={{ boxShadow: `0 4px 12px ${palette.green}33` }}>
-                    Buscar
+                  <button type="submit" class="btn theme-primary-bg theme-primary-hover border-none text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-emerald-700/20 active:scale-95 transition-transform" style={{ boxShadow: `0 4px 12px ${palette.green}33` }}>
+                    Buscar Registro
                   </button>
                 </div>
               </div>
-              <p class="text-[11px] text-slate-500 leading-snug">El identificador hash o GUID es único y se encuentra listado en el reporte de la credencial o en tu recibo de emisión.</p>
+              <p class="text-[11px] text-slate-500 leading-snug">Puedes buscar por el GUID de la blockchain (ej. 6e424670...), el Folio de Registro Académico (ej. UTCJ-2026-MC-15761) o por el nombre completo del egresado.</p>
             </form>
           )}
 
@@ -632,23 +632,31 @@ export function LandingPage() {
                 <a 
                   href={`/render/${result.id}`} 
                   target="_blank" 
-                  class="flex-1 btn btn-primary font-bold px-6 py-3 rounded-xl theme-primary-bg theme-primary-hover border-none text-white text-center shadow-lg shadow-emerald-700/20 flex items-center justify-center gap-2"
+                  class="flex-1 btn btn-primary font-bold px-5 py-3 rounded-xl theme-primary-bg theme-primary-hover border-none text-white text-center shadow-lg shadow-emerald-700/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
                   style={{ boxShadow: `0 4px 12px ${palette.green}33` }}
                 >
                   <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                  Abrir Certificado Web
+                  Diploma Web
                 </a>
                 <a 
                   href={`/certificate/${result.id}/pdf`} 
                   download 
-                  class="flex-1 btn border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold px-6 py-3 rounded-xl text-center flex items-center justify-center gap-2"
+                  class="flex-1 btn border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold px-5 py-3 rounded-xl text-center flex items-center justify-center gap-2 active:scale-95 transition-transform"
                 >
                   <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                  Descargar PDF Oficial
+                  Diploma PDF
+                </a>
+                <a 
+                  href={`/certificate/${result.id}/constancia-pdf`} 
+                  download 
+                  class="flex-1 btn border border-slate-800 bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold px-5 py-3 rounded-xl text-center flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                >
+                  <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  Constancia PDF
                 </a>
                 <button 
                   onClick={() => { setResult(null); setError(null); setCertId(''); }}
-                  class="btn border border-slate-800 hover:bg-slate-800 text-slate-400 font-bold px-4 py-3 rounded-xl text-center"
+                  class="btn border border-slate-800 hover:bg-slate-800 text-slate-400 font-bold px-4 py-3 rounded-xl text-center active:scale-95 transition-transform"
                 >
                   Validar Otra
                 </button>

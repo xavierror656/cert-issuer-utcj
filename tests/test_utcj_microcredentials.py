@@ -139,6 +139,43 @@ class TestUTCJMicrocredentials(unittest.TestCase):
         self.assertEqual(res_zip.status_code, 200)
         self.assertEqual(res_zip.media_type, "application/zip")
 
+    def test_constancia_pdf_and_folio_search(self):
+        from utcj_microcredentials.app import get_constancia_pdf, storage as app_storage
+        from utcj_microcredentials.db import add_certificate, find_certificate_by_id_or_folio_or_name
+        import hashlib
+
+        cert_id = "test-constancia-id-99"
+        mock_cert = {
+            "name": "Microcredencial en Ciberseguridad",
+            "credentialSubject": {
+                "certificateId": cert_id,
+                "name": "Juan Perez Ramos",
+                "courseName": "Seguridad Informática",
+                "hours": 60,
+                "issueDate": "2026-08-10",
+                "skills": ["RBAC", "Penetration Testing"]
+            }
+        }
+        app_storage.save_certificate(cert_id, mock_cert, {}, "<svg></svg>", b"%PDF-1.4...", {"chain": "ethereum_mainnet"})
+        add_certificate(self.settings, cert_id, "Juan Perez Ramos", "Microcredencial en Ciberseguridad", "Seguridad Informática", 60, "100/100", "ethereum_mainnet", "0xabc123", "2026-08-10", "admin", {}, {})
+
+        res = get_constancia_pdf(cert_id)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.media_type, "application/pdf")
+        self.assertTrue(res.body.startswith(b"%PDF"))
+
+        # Test Folio Search Resolution
+        num = int(hashlib.md5(cert_id.encode('utf-8')).hexdigest()[:6], 16) % 90000 + 10000
+        folio_str = f"UTCJ-2026-MC-{num}"
+
+        found_by_folio = find_certificate_by_id_or_folio_or_name(self.settings, folio_str)
+        self.assertIsNotNone(found_by_folio)
+        self.assertEqual(found_by_folio["id"], cert_id)
+
+        found_by_name = find_certificate_by_id_or_folio_or_name(self.settings, "Juan Perez")
+        self.assertIsNotNone(found_by_name)
+        self.assertEqual(found_by_name["id"], cert_id)
+
 
 if __name__ == "__main__":
     unittest.main()

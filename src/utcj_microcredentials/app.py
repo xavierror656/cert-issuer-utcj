@@ -17,7 +17,7 @@ from .blockcerts import IssueError, build_unsigned_credential, issue_with_cert_i
 from .config import Settings
 from .logging_utils import configure_logging
 from .models import IssueRequest, IssueResponse, User
-from .rendering import render_certificate_pdf, render_certificate_svg
+from .rendering import render_certificate_pdf, render_certificate_svg, render_constancia_pdf
 from .storage import Storage
 from .db import init_db, add_certificate, get_certificate, revoke_certificate, get_revocation_list, set_branding_color, add_audit_log, list_audit_logs
 from .auth import create_jwt, verify_jwt
@@ -388,10 +388,11 @@ def list_certificates(
 
 @app.get("/render/{certificate_id}")
 def render_certificate(certificate_id: str) -> HTMLResponse:
-    from .db import get_certificate as db_get
-    db_cert = db_get(settings, certificate_id)
+    from .db import find_certificate_by_id_or_folio_or_name
+    db_cert = find_certificate_by_id_or_folio_or_name(settings, certificate_id)
     if not db_cert:
         raise HTTPException(status_code=404, detail="Certificate not found in database")
+    certificate_id = db_cert["id"]
 
     try:
         cert_data = storage.get_certificate(certificate_id)
@@ -406,6 +407,10 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
     issue_date = subject["issueDate"]
     grade = db_cert.get("grade", "Acreditado")
     skills = subject["skills"]
+    import hashlib
+    num = int(hashlib.md5(certificate_id.encode('utf-8')).hexdigest()[:6], 16) % 90000 + 10000
+    folio_num = f"UTCJ-2026-MC-{num}"
+
     chain = db_cert.get("chain", settings.default_chain)
     tx_id = db_cert.get("transaction_id", "N/A")
     issued_by = db_cert.get("issued_by", "system")
@@ -1311,7 +1316,11 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
       
       <div class="meta-list">
         <div class="meta-item">
-          <h4>ID de Credencial</h4>
+          <h4>Folio Universitario</h4>
+          <p>{folio_num} <span class="copy-btn" onclick="copyToClipboard('{folio_num}', 'tooltip-folio')"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span class="tooltip" id="tooltip-folio">Copiar</span></span></p>
+        </div>
+        <div class="meta-item">
+          <h4>GUID Criptográfico</h4>
           <p>{certificate_id} <span class="copy-btn" onclick="copyToClipboard('{certificate_id}', 'tooltip-id')"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span class="tooltip" id="tooltip-id">Copiar</span></span></p>
         </div>
         <div class="meta-item"><h4>Fecha de Emisión</h4><p>{issue_date}</p></div>
@@ -1325,7 +1334,8 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
       <div class="sidebar-divider"></div>
       
       <div class="button-group">
-        <a href="{pdf_url}" download class="btn btn-primary">Descargar PDF Oficial</a>
+        <a href="{pdf_url}" download class="btn btn-primary">Descargar PDF Diploma</a>
+        <a href="/certificate/{certificate_id}/constancia-pdf" download class="btn btn-primary" style="background: var(--secondary); border-color: var(--secondary);">Descargar Constancia Oficial PDF</a>
         <a href="{json_url}" download class="btn btn-secondary">Descargar JSON (Blockcerts)</a>
         <button onclick="startVerification()" class="btn btn-secondary" style="border-color: var(--primary); color: var(--primary); font-weight: 700; background: var(--green-light);">
           Verificar Criptografía Local
@@ -1825,16 +1835,34 @@ def get_certificate_pdf(
     return Response(
         content=content,
         media_type="application/pdf",
-        headers={"Content-Disposition": "inline; filename=certificate.pdf"}
+        headers={"Content-Disposition": f"inline; filename=microcredencial-utcj-{certificate_id[:8]}.pdf"},
+    )
+
+
+@app.get("/certificate/{certificate_id}/constancia-pdf")
+def get_constancia_pdf(certificate_id: str) -> Response:
+    try:
+        issued = storage.get_certificate(certificate_id)
+        from .db import get_certificate as db_get_cert
+        db_cert = db_get_cert(settings, certificate_id)
+        tx_id = db_cert["transaction_id"] if db_cert else ""
+        content = render_constancia_pdf(issued, settings, tx_id)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="No se pudo generar la constancia en PDF") from exc
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=constancia-utcj-{certificate_id[:8]}.pdf"},
     )
 
 
 @app.get("/certificate/{certificate_id}/verify")
 def verify_certificate_endpoint(certificate_id: str) -> JSONResponse:
-    from .db import get_certificate as db_get_cert, update_certificate_verification_cache
-    db_cert = db_get_cert(settings, certificate_id)
+    from .db import find_certificate_by_id_or_folio_or_name, update_certificate_verification_cache
+    db_cert = find_certificate_by_id_or_folio_or_name(settings, certificate_id)
     if not db_cert:
         raise HTTPException(status_code=404, detail="Certificate not found in database")
+    certificate_id = db_cert["id"]
         
     if db_cert.get("revoked", 0) == 1:
         return JSONResponse({

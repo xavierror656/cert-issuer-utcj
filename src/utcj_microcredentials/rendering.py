@@ -471,6 +471,149 @@ def render_certificate_pdf(certificate: dict[str, Any], settings: Settings, tran
     return buffer.getvalue()
 
 
+def render_constancia_pdf(certificate: dict[str, Any], settings: Settings, transaction_id: str, palette: dict[str, str] | None = None) -> bytes:
+    import hashlib
+    import qrcode
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.colors import HexColor
+    from reportlab.lib.utils import ImageReader
+    from reportlab.platypus import Paragraph, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet
+
+    if palette is None:
+        palette = get_palette(settings)
+    subject = certificate["credentialSubject"]
+    cert_id = subject["certificateId"]
+    num = int(hashlib.md5(cert_id.encode('utf-8')).hexdigest()[:6], 16) % 90000 + 10000
+    folio_num = f"UTCJ-2026-MC-{num}"
+    chain = getattr(settings, "default_chain", "ethereum_mainnet")
+
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    page_w, page_h = letter  # 612 x 792 pt
+
+    # Border & Institutional Framing
+    c.setStrokeColor(HexColor(palette["gold"]))
+    c.setLineWidth(2)
+    c.rect(36, 36, page_w - 72, page_h - 72)
+    
+    c.setStrokeColor(HexColor(palette["green"]))
+    c.setLineWidth(0.75)
+    c.rect(42, 42, page_w - 84, page_h - 84)
+
+    # University Header Text
+    c.setFont("Helvetica-Bold", 13)
+    c.setFillColor(HexColor(palette["teal"]))
+    c.drawCentredString(page_w / 2, page_h - 70, "UNIVERSIDAD TECNOLÓGICA DE CIUDAD JUÁREZ")
+
+    c.setFont("Helvetica-Bold", 8.5)
+    c.setFillColor(HexColor(palette["green"]))
+    c.drawCentredString(page_w / 2, page_h - 84, "ORGANISMO PÚBLICO DESCENTRALIZADO DEL GOBIERNO DEL ESTADO DE CHIHUAHUA")
+    c.setFont("Helvetica", 7.5)
+    c.setFillColor(HexColor(palette["graphite"]))
+    c.drawCentredString(page_w / 2, page_h - 96, "DIRECCIÓN DE ADMINISTRACIÓN ESCOLAR • CLAVE CCT: 08MSU0017R • RECONOCIMIENTO CGUTyP / SEPyD")
+
+    c.setStrokeColor(HexColor(palette["gold"]))
+    c.setLineWidth(1)
+    c.line(60, page_h - 106, page_w - 60, page_h - 106)
+
+    # Document Title
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(HexColor(palette["teal"]))
+    c.drawCentredString(page_w / 2, page_h - 130, "CONSTANCIA OFICIAL DE ACREDITACIÓN ACADÉMICA Y COMPETENCIAS")
+
+    # Folio Tag
+    c.setFont("Helvetica-Bold", 9.5)
+    c.setFillColor(HexColor(palette["gold"]))
+    c.drawRightString(page_w - 60, page_h - 150, f"FOLIO REGISTRO: {folio_num}")
+    c.drawString(60, page_h - 150, f"FECHA EMISIÓN: {subject.get('issueDate', '2026-08-10')}")
+
+    # Body Paragraph
+    body_text = f"""La Dirección de Administración Escolar de la Universidad Tecnológica de Ciudad Juárez HACE CONSTAR que, según los registros del Libro Matriz de Microcredenciales Universitarias, el (la) C. <b>{subject.get('name', 'N/A')}</b> ha acreditado satisfactoriamente la totalidad de las evaluaciones del programa de competencias titulado <b>"{certificate.get('name', 'N/A')}"</b>."""
+
+    style = getSampleStyleSheet()["Normal"]
+    style.fontName = "Helvetica"
+    style.fontSize = 9.5
+    style.leading = 15
+    style.textColor = HexColor(palette["graphite"])
+
+    p = Paragraph(body_text, style)
+    p.wrapOn(c, page_w - 120, 200)
+    p.drawOn(c, 60, page_h - 215)
+
+    # Table of Academic Details
+    data = [
+        ["CONCEPTO REGISTRAL", "DETALLE INSTITUCIONAL Y CRIPTOGRÁFICO"],
+        ["Titular Acreditado", subject.get('name', 'N/A')],
+        ["Programa de Microcredencial", certificate.get('name', 'N/A')],
+        ["Horas Lectivas y Prácticas", f"{subject.get('hours', 40)} Horas Acreditadas"],
+        ["Evaluación Académica", subject.get('grade', 'Aprobado')],
+        ["Identificador Global (GUID)", cert_id],
+        ["Anclaje Blockchain (Red)", f"Ethereum Mainnet (Tx: {transaction_id[:24]}...)"],
+        ["Estándar de Verificación", "W3C Blockcerts v3.2 / Firma Digital de Rectoría"]
+    ]
+
+    t = Table(data, colWidths=[160, 332])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (1,0), HexColor(palette["teal"])),
+        ('TEXTCOLOR', (0,0), (1,0), HexColor("#FFFFFF")),
+        ('FONTNAME', (0,0), (1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('GRID', (0,0), (-1,-1), 0.5, HexColor(palette["mist"])),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [HexColor("#FFFFFF"), HexColor("#F9FBFB")]),
+        ('FONTNAME', (0,1), (0,-1), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0,1), (0,-1), HexColor(palette["green"])),
+    ]))
+    t.wrapOn(c, page_w - 120, 300)
+    t.drawOn(c, 60, page_h - 410)
+
+    # QR Code for Verification
+    qr = qrcode.make(settings.certificate_render_url(cert_id))
+    qr_buffer = io.BytesIO()
+    qr.save(qr_buffer, format="PNG")
+    qr_buffer.seek(0)
+    c.drawImage(ImageReader(qr_buffer), 60, 95, width=80, height=80, mask="auto")
+
+    c.setFont("Helvetica-Bold", 7)
+    c.setFillColor(HexColor(palette["teal"]))
+    c.drawString(60, 82, "ESCANEE PARA VERIFICAR")
+    c.setFont("Helvetica", 6.5)
+    c.setFillColor(HexColor(palette["graphite"]))
+    c.drawString(60, 72, "Portal Oficial UTCJ")
+
+    # Rector Signature Block
+    sig_path = settings.data_dir / "rector_signature.png"
+    if sig_path.exists():
+        try:
+            c.drawImage(str(sig_path), page_w - 230, 125, width=140, height=45, mask="auto")
+        except Exception:
+            pass
+
+    c.setStrokeColor(HexColor(palette["teal"]))
+    c.setLineWidth(1)
+    c.line(page_w - 250, 120, page_w - 60, 120)
+
+    c.setFont("Helvetica-Bold", 8.5)
+    c.setFillColor(HexColor(palette["teal"]))
+    c.drawCentredString(page_w - 155, 108, "Dr. Óscar Fidencio Ibáñez Hernández")
+    c.setFont("Helvetica", 7.5)
+    c.setFillColor(HexColor(palette["graphite"]))
+    c.drawCentredString(page_w - 155, 96, "Rector de la Universidad Tecnológica")
+    c.drawCentredString(page_w - 155, 86, "de Ciudad Juárez")
+
+    # Legal Footer
+    c.setFont("Helvetica", 6.5)
+    c.setFillColor(HexColor(palette["silver"]))
+    c.drawCentredString(page_w / 2, 50, "Esta constancia es un documento oficial emitido por la Universidad Tecnológica de Ciudad Juárez (UTCJ).")
+    c.drawCentredString(page_w / 2, 41, "La autenticidad de la información y su anclaje criptográfico puede verificarse en https://utcjmicro.javierflores.software")
+
+    c.showPage()
+    c.save()
+    return buffer.getvalue()
+
+
 def render_social_card_svg(certificate: dict[str, Any], settings: Settings, transaction_id: str, palette: dict[str, str] | None = None) -> str:
     if palette is None:
         palette = get_palette(settings)
