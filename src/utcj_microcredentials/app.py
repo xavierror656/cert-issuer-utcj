@@ -1271,14 +1271,17 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         </div>
 
         <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-          <a href="https://www.linkedin.com/sharing/share-offsite/?url={settings.public_base_url}/render/{certificate_id}" target="_blank" class="btn btn-primary" style="background: #0A66C2; border-color: #0A66C2; text-decoration: none; padding: 10px 20px;">
-            💼 Compartir en LinkedIn
+          <a href="https://www.linkedin.com/sharing/share-offsite/?url={settings.public_base_url}/render/{certificate_id}" target="_blank" class="btn btn-primary" style="background: #0A66C2; border-color: #0A66C2; text-decoration: none; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.25V10.9H6.46M7.86 6.72a1.49 1.49 0 1 0 0 2.98 1.49 1.49 0 0 0 0-2.98z"/></svg>
+            Compartir en LinkedIn
           </a>
-          <a href="https://twitter.com/intent/tweet?text=¡Orgullosamente%20acredité%20mi%20Microcredencial%20Verificable%20en%20la%20UTCJ!&url={settings.public_base_url}/render/{certificate_id}" target="_blank" class="btn btn-primary" style="background: #1DA1F2; border-color: #1DA1F2; text-decoration: none; padding: 10px 20px;">
-            🐦 Compartir en X (Twitter)
+          <a href="https://twitter.com/intent/tweet?text=¡Orgullosamente%20acredité%20mi%20Microcredencial%20Verificable%20en%20la%20UTCJ!&url={settings.public_base_url}/render/{certificate_id}" target="_blank" class="btn btn-primary" style="background: #1DA1F2; border-color: #1DA1F2; text-decoration: none; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            Compartir en X (Twitter)
           </a>
-          <a href="/certificate/{certificate_id}/social-card.svg" download="utcj-microcredential-card.svg" class="btn btn-secondary" style="padding: 10px 20px;">
-            ⬇️ Descargar Tarjeta SVG
+          <a href="/certificate/{certificate_id}/social-card.svg" download="utcj-microcredential-card.svg" class="btn btn-secondary" style="padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Descargar Tarjeta SVG
           </a>
         </div>
       </div>
@@ -1289,7 +1292,7 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         <p style="color: var(--text-light); font-size: 14px; margin-bottom: 28px; max-width: 650px; margin-left: auto; margin-right: auto;">Arrastra o selecciona cualquier archivo PDF para verificar criptográficamente si es 100% auténtico o si ha sido modificado.</p>
         
         <div id="pdf-drop-zone" style="border: 2px dashed var(--primary); border-radius: 20px; padding: 48px 24px; background: rgba(15, 106, 82, 0.03); cursor: pointer; transition: all 0.3s ease; max-width: 650px; margin: 0 auto;">
-          <div style="font-size: 44px; margin-bottom: 12px;">📄</div>
+          <svg style="width: 48px; height: 48px; color: var(--primary); display: block; margin: 0 auto 12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
           <h4 style="font-family: 'Outfit', sans-serif; font-size: 18px; color: var(--primary-dark); margin-bottom: 8px;">Arrastra aquí tu certificado PDF impreso o descargado</h4>
           <p style="font-size: 13px; color: var(--text-light); margin-bottom: 16px;">o haz clic para examinar archivos en tu equipo</p>
           <input type="file" id="pdf-file-input" accept="application/pdf" style="display: none;">
@@ -1309,13 +1312,13 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
       <div class="meta-list">
         <div class="meta-item">
           <h4>ID de Credencial</h4>
-          <p>{certificate_id} <span class="copy-btn" onclick="copyToClipboard('{certificate_id}', 'tooltip-id')">📋<span class="tooltip" id="tooltip-id">Copiar</span></span></p>
+          <p>{certificate_id} <span class="copy-btn" onclick="copyToClipboard('{certificate_id}', 'tooltip-id')"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span class="tooltip" id="tooltip-id">Copiar</span></span></p>
         </div>
         <div class="meta-item"><h4>Fecha de Emisión</h4><p>{issue_date}</p></div>
         <div class="meta-item"><h4>Horas</h4><p>{hours}</p></div>
         <div class="meta-item"><h4>Estatus</h4><p>{grade}</p></div>
         <div class="meta-item"><h4>Red</h4><p>{chain}</p></div>
-        <div class="meta-item"><h4>Transacción</h4><p>{tx_id[:16]}... <span class="copy-btn" onclick="copyToClipboard('{tx_id}', 'tooltip-tx')">📋<span class="tooltip" id="tooltip-tx">Copiar</span></span></p></div>
+        <div class="meta-item"><h4>Transacción</h4><p>{tx_id[:16]}... <span class="copy-btn" onclick="copyToClipboard('{tx_id}', 'tooltip-tx')"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span class="tooltip" id="tooltip-tx">Copiar</span></span></p></div>
         <div class="meta-item"><h4>Emisor</h4><p>{issued_by}</p></div>
       </div>
 
@@ -1325,7 +1328,7 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         <a href="{pdf_url}" download class="btn btn-primary">Descargar PDF Oficial</a>
         <a href="{json_url}" download class="btn btn-secondary">Descargar JSON (Blockcerts)</a>
         <button onclick="startVerification()" class="btn btn-secondary" style="border-color: var(--primary); color: var(--primary); font-weight: 700; background: var(--green-light);">
-          ✓ Verificar Criptografía Local
+          Verificar Criptografía Local
         </button>
         <a href="https://www.blockcerts.org/" target="_blank" class="btn btn-secondary" style="border-color: var(--accent); color: var(--accent);">Validar en Blockcerts.org</a>
       </div>
@@ -1349,23 +1352,23 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
             
             <div class="verify-steps-list">
               <div id="v-step-1" class="v-step">
-                <span class="v-step-icon">⚪</span>
+                <span class="v-step-icon">•</span>
                 <span class="v-step-text">Leyendo recibo criptográfico Blockcerts...</span>
               </div>
               <div id="v-step-2" class="v-step">
-                <span class="v-step-icon">⚪</span>
+                <span class="v-step-icon">•</span>
                 <span class="v-step-text">Verificando firma SHA-256 local...</span>
               </div>
               <div id="v-step-3" class="v-step">
-                <span class="v-step-icon">⚪</span>
+                <span class="v-step-icon">•</span>
                 <span class="v-step-text">Confirmando llaves públicas de emisor (UTCJ)...</span>
               </div>
               <div id="v-step-4" class="v-step">
-                <span class="v-step-icon">⚪</span>
+                <span class="v-step-icon">•</span>
                 <span class="v-step-text">Validando anclaje en blockchain ({chain})...</span>
               </div>
               <div id="v-step-5" class="v-step">
-                <span class="v-step-icon">⚪</span>
+                <span class="v-step-icon">•</span>
                 <span class="v-step-text">Consultando estatus de revocación oficial...</span>
               </div>
             </div>
@@ -1465,7 +1468,7 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
             resultDiv.style.border = '2px solid #10B981';
             resultDiv.innerHTML = `
               <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                <div style="font-size: 28px;">✅</div>
+                <svg style="width: 32px; height: 32px; color: #10B981; shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <div>
                   <h4 style="color: #065F46; font-size: 16px; font-weight: 700;">DOCUMENTO PDF 100% AUTÉNTICO Y LEGÍTIMO</h4>
                   <p style="color: #047857; font-size: 13px;">${{res.body.details}}</p>
@@ -1483,7 +1486,7 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
             resultDiv.style.border = '2px solid #EF4444';
             resultDiv.innerHTML = `
               <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="font-size: 28px;">⚠️</div>
+                <svg style="width: 32px; height: 32px; color: #EF4444; shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 <div>
                   <h4 style="color: #991B1B; font-size: 16px; font-weight: 700;">NO SE PUDO VERIFICAR LA AUTENTICIDAD DEL PDF</h4>
                   <p style="color: #B91C1C; font-size: 13px;">${{res.body.details || 'El archivo PDF no coincide con ningún certificado emitido por la institución.'}}</p>
@@ -1527,7 +1530,7 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
       for(let i=1; i<=5; i++) {{
         const stepEl = document.getElementById('v-step-' + i);
         stepEl.className = 'v-step';
-        stepEl.querySelector('.v-step-icon').innerText = '⏳';
+        stepEl.querySelector('.v-step-icon').innerText = '•';
       }}
       
       const isRevoked = {str(is_revoked).lower()};
@@ -1558,12 +1561,12 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
           resultPanel.classList.remove('hidden');
           if (verificationResult.status === 'verified') {{
             resultPanel.classList.add('v-result-success');
-            resultTitle.innerText = '✅ CREDENCIAL AUTÉNTICA Y VÁLIDA';
+            resultTitle.innerText = 'CREDENCIAL AUTÉNTICA Y VÁLIDA';
             resultDesc.innerText = verificationResult.details + (verificationResult.cached ? ' [Desde Caché]' : '');
             fireConfetti();
           }} else {{
             resultPanel.classList.add('v-result-failed');
-            resultTitle.innerText = '❌ VERIFICACIÓN FALLIDA';
+            resultTitle.innerText = 'VERIFICACIÓN FALLIDA';
             resultDesc.innerText = verificationResult.details;
             
             // Shake modal
@@ -1591,11 +1594,11 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
           if (stepFailed) {{
             stepEl.classList.remove('v-step-active');
             stepEl.classList.add('v-step-failed');
-            stepEl.querySelector('.v-step-icon').innerText = '❌';
+            stepEl.querySelector('.v-step-icon').innerText = '✕';
           }} else {{
             stepEl.classList.remove('v-step-active');
             stepEl.classList.add('v-step-success');
-            stepEl.querySelector('.v-step-icon').innerText = '✅';
+            stepEl.querySelector('.v-step-icon').innerText = '✓';
           }}
           runStep(stepNum + 1);
         }}, 600);
@@ -5833,7 +5836,7 @@ def check_and_alert_wallet_balance(settings) -> None:
             current_time = time.time()
             if current_time - last_gas_alert_time > 86400:  # once every 24 hours
                 last_gas_alert_time = current_time
-                msg = f"⚠️ [ALERTA DE GAS UTCJ] El balance de la wallet de emisión de microcredenciales es críticamente bajo.\n- Dirección: {address}\n- Balance actual: {balance:.4f} ETH\n- Umbral mínimo: {threshold} ETH\n- Red: {chain}\nPor favor, recargue la wallet para asegurar la continuidad del servicio."
+                msg = f"[ALERTA DE GAS UTCJ] El balance de la wallet de emisión de microcredenciales es críticamente bajo.\n- Dirección: {address}\n- Balance actual: {balance:.4f} ETH\n- Umbral mínimo: {threshold} ETH\n- Red: {chain}\nPor favor, recargue la wallet para asegurar la continuidad del servicio."
                 
                 # Log critical error
                 logging.getLogger("utcj_microcredentials.app").critical(msg)

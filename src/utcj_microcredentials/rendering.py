@@ -456,7 +456,7 @@ def render_certificate_pdf(certificate: dict[str, Any], settings: Settings, tran
 
     c.setFont("Helvetica-Bold", 8)
     c.setFillColor(HexColor(PALETTE["green"]))
-    c.drawString(120, 78, "✔ VERIFICACIÓN BLOCKCHAIN ACTIVA (W3C BLOCKCERTS v3.2)")
+    c.drawString(120, 78, "VERIFICACIÓN BLOCKCHAIN ACTIVA (W3C BLOCKCERTS v3.2)")
 
     c.setFont("Helvetica", 7.5)
     c.setFillColor(HexColor(PALETTE["graphite"]))
@@ -520,7 +520,7 @@ def render_social_card_svg(certificate: dict[str, Any], settings: Settings, tran
   <!-- Verified Badge -->
   <rect x="64" y="365" width="340" height="38" rx="19" fill="{palette["green"]}" fill-opacity="0.6" stroke="{palette["gold"]}" stroke-width="1"/>
   <circle cx="86" cy="384" r="6" fill="#10B981"/>
-  <text x="102" y="389" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="1">✔ VERIFICADA EN ETHEREUM</text>
+  <text x="102" y="389" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="1">VERIFICADA EN ETHEREUM</text>
   
   <text x="64" y="445" fill="{palette["mist"]}" font-family="Arial, sans-serif" font-size="16">ID: {subject['certificateId']}</text>
   <text x="64" y="475" fill="{palette["gold"]}" font-family="monospace" font-size="14">Tx: {transaction_id[:36]}...</text>

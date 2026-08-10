@@ -520,7 +520,10 @@ export function LandingPage() {
                 {cameraActive ? (
                   <div class="w-full flex flex-col items-center">
                     <video id="qr-video" class="w-full max-w-sm rounded-xl border border-emerald-500/40 bg-black aspect-video object-cover shadow-xl mb-3" autoPlay playsInline></video>
-                    <p class="text-xs text-emerald-400 font-bold animate-pulse">📷 Apunta la cámara al código QR...</p>
+                    <p class="text-xs text-emerald-400 font-bold animate-pulse flex items-center justify-center gap-1.5">
+                      <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                      Apunta la cámara al código QR...
+                    </p>
                     <button onClick={stopCameraScanner} class="btn btn-xs btn-outline border-slate-700 text-slate-400 mt-3 hover:bg-slate-800">Detener Cámara</button>
                   </div>
                 ) : (
@@ -557,10 +560,14 @@ export function LandingPage() {
                   <div key={idx} class="flex gap-4 items-start">
                     <div class="mt-1">
                       {step.status === 'success' && (
-                        <span class="w-5 h-5 rounded-full theme-primary-light-bg border theme-primary-text flex items-center justify-center text-xs font-bold" style={{ borderColor: `${palette.green}33` }}>✓</span>
+                        <span class="w-5 h-5 rounded-full theme-primary-light-bg border theme-primary-text flex items-center justify-center text-xs font-bold" style={{ borderColor: `${palette.green}33` }}>
+                          <svg class="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        </span>
                       )}
                       {step.status === 'failed' && (
-                        <span class="w-5 h-5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center text-xs font-bold">✗</span>
+                        <span class="w-5 h-5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center text-xs font-bold">
+                          <svg class="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </span>
                       )}
                       {step.status === 'loading' && (
                         <span class="loading loading-spinner loading-xs text-amber-500"></span>
@@ -587,9 +594,11 @@ export function LandingPage() {
           {result && !verifying && (
             <div class="space-y-6 animate-[fadeInUp_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards]">
               <div class="theme-primary-light-bg border rounded-xl p-4 flex items-center gap-3" style={{ borderColor: `${palette.green}33` }}>
-                <span class="w-8 h-8 rounded-full theme-primary-bg text-slate-900 flex items-center justify-center text-md font-bold">✓</span>
+                <span class="w-8 h-8 rounded-full theme-primary-bg text-slate-900 flex items-center justify-center text-md font-bold">
+                  <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                </span>
                 <div>
-                  <h4 class="font-bold text-sm theme-primary-text">CREDENCIA AUTÉNTICA Y CERTIFICADA</h4>
+                  <h4 class="font-bold text-sm theme-primary-text">CREDENCIAL AUTÉNTICA Y CERTIFICADA</h4>
                   <p class="text-[10px] text-slate-400 mt-0.5">El documento es válido y corresponde a la firma registrada de la universidad.</p>
                 </div>
               </div>
@@ -623,17 +632,19 @@ export function LandingPage() {
                 <a 
                   href={`/render/${result.id}`} 
                   target="_blank" 
-                  class="flex-1 btn btn-primary font-bold px-6 py-3 rounded-xl theme-primary-bg theme-primary-hover border-none text-white text-center shadow-lg shadow-emerald-700/20"
+                  class="flex-1 btn btn-primary font-bold px-6 py-3 rounded-xl theme-primary-bg theme-primary-hover border-none text-white text-center shadow-lg shadow-emerald-700/20 flex items-center justify-center gap-2"
                   style={{ boxShadow: `0 4px 12px ${palette.green}33` }}
                 >
-                  📄 Abrir Certificado Web
+                  <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                  Abrir Certificado Web
                 </a>
                 <a 
                   href={`/certificate/${result.id}/pdf`} 
                   download 
-                  class="flex-1 btn border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold px-6 py-3 rounded-xl text-center"
+                  class="flex-1 btn border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold px-6 py-3 rounded-xl text-center flex items-center justify-center gap-2"
                 >
-                  📥 Descargar PDF Oficial
+                  <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  Descargar PDF Oficial
                 </a>
                 <button 
                   onClick={() => { setResult(null); setError(null); setCertId(''); }}
