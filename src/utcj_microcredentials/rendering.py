@@ -541,7 +541,7 @@ def render_constancia_pdf(certificate: dict[str, Any], settings: Settings, trans
     p.wrapOn(c, page_w - 120, 200)
     p.drawOn(c, 60, page_h - 215)
 
-    # Table of Academic Details
+    tx_str = str(transaction_id or "N/A")
     data = [
         ["CONCEPTO REGISTRAL", "DETALLE INSTITUCIONAL Y CRIPTOGRÁFICO"],
         ["Titular Acreditado", subject.get('name', 'N/A')],
@@ -549,7 +549,7 @@ def render_constancia_pdf(certificate: dict[str, Any], settings: Settings, trans
         ["Horas Lectivas y Prácticas", f"{subject.get('hours', 40)} Horas Acreditadas"],
         ["Evaluación Académica", subject.get('grade', 'Aprobado')],
         ["Identificador Global (GUID)", cert_id],
-        ["Anclaje Blockchain (Red)", f"Ethereum Mainnet (Tx: {transaction_id[:24]}...)"],
+        ["Anclaje Blockchain (Red)", f"Ethereum Mainnet (Tx: {tx_str[:24]}...)"],
         ["Estándar de Verificación", "W3C Blockcerts v3.2 / Firma Digital de Rectoría"]
     ]
 
