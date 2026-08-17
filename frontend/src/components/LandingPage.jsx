@@ -257,12 +257,14 @@ export function LandingPage() {
         console.warn("Librería de cliente no soportada en este navegador o falló. Usando backend seguro...", e);
       }
 
-      // Fallback: Si falla la librería del navegador, hacemos verificación vía Backend
+      // Clean certificate ID helper
+      const rawId = (json.credentialSubject && (json.credentialSubject.certificateId || json.credentialSubject.id)) || json.id || '';
+      const certIdStr = rawId.replace(/^urn:uuid:/i, '').split('/').pop().trim();
+
+      // Fallback: Si falla la librería del navegador o no coincide el nodo remoto, hacemos verificación vía Backend
       if (!libVerifySuccess) {
-        const certIdStr = json.credentialSubject.certificateId || json.id.split('/').pop() || json.id;
-        
         updateStep('hash', 'loading');
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 400));
         updateStep('hash', 'success');
         
         updateStep('merkle', 'loading');
@@ -272,7 +274,7 @@ export function LandingPage() {
         updateStep('anchor', 'loading');
         const verifyRes = await fetch(`/certificate/${certIdStr}/verify`);
         if (!verifyRes.ok) {
-          throw new Error("Error al contactar al servidor de validación de blockchain.");
+          throw new Error("No se pudo verificar el registro en el nodo de la blockchain.");
         }
         const verifyData = await verifyRes.json();
         
@@ -297,7 +299,7 @@ export function LandingPage() {
         updateStep('revocation', 'success');
       }
 
-      // Exito total
+      // Éxito total
       confetti({
         particleCount: 120,
         spread: 80,
@@ -305,7 +307,6 @@ export function LandingPage() {
         colors: [palette.green, palette.gold, palette.teal, palette.silver]
       });
 
-      const certIdStr = json.credentialSubject.certificateId || json.id.split('/').pop() || json.id;
       setResult({
         recipient: json.credentialSubject.name,
         title: json.name,

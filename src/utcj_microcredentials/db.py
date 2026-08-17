@@ -484,9 +484,12 @@ def find_certificate_by_id_or_folio_or_name(settings: Any, search_term: str) -> 
     search_term = search_term.strip()
     if not search_term:
         return None
+
+    # Strip urn:uuid: or URL prefixes if present
+    clean_id = search_term.replace("urn:uuid:", "").split("/")[-1].strip()
         
     # 1. Exact ID query
-    cert = get_certificate(settings, search_term)
+    cert = get_certificate(settings, clean_id) or get_certificate(settings, search_term)
     if cert:
         return cert
         
