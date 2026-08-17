@@ -2632,7 +2632,7 @@ def admin_logout(request: Request) -> Response:
 
 def get_wallet_balance(settings: Any) -> float:
     import os
-    chain = getattr(settings, "default_chain", "ethereum_sepolia")
+    chain = getattr(settings, "default_chain", "ethereum_mainnet")
     if chain == "ethereum_mainnet":
         rpc_url = os.getenv("ETHEREUM_RPC_URL") or getattr(settings, "ethereum_rpc_url", None)
     else:
@@ -2769,7 +2769,7 @@ def admin_dashboard_data(
         "teal": palette.get("teal", "#0F3E4A"),
         "gold": palette.get("gold", "#B88A3B"),
         "silver": palette.get("silver", "#8FA3AD"),
-        "default_chain": getattr(settings, "default_chain", "ethereum_sepolia")
+        "default_chain": getattr(settings, "default_chain", "ethereum_mainnet")
     }
     
     return {
@@ -3037,7 +3037,7 @@ def admin_dashboard(
     
     # Check Sepolia/Ethereum Wallet Balance
     balance = get_wallet_balance(settings)
-    chain = getattr(settings, "default_chain", "ethereum_sepolia")
+    chain = getattr(settings, "default_chain", "ethereum_mainnet")
     threshold = 0.003 if chain == "ethereum_mainnet" else 0.05
     is_low_balance = balance < threshold
     balance_class = "bg-red-50 text-red-700 border-red-100" if is_low_balance else "bg-blue-50 text-blue-700 border-blue-100"
@@ -5950,7 +5950,7 @@ def check_and_alert_wallet_balance(settings) -> None:
     global last_gas_alert_time
     try:
         balance = get_wallet_balance(settings)
-        chain = getattr(settings, "default_chain", "ethereum_sepolia")
+        chain = getattr(settings, "default_chain", "ethereum_mainnet")
         threshold = float(os.getenv("GAS_ALERT_THRESHOLD") or (0.003 if chain == "ethereum_mainnet" else 0.05))
         
         if balance < threshold:

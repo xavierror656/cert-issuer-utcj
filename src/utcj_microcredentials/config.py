@@ -167,7 +167,7 @@ class Settings:
             host=os.getenv("HOST", "0.0.0.0"),
             port=int(os.getenv("PORT", "8000")),
             public_base_url=os.getenv("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/"),
-            default_chain=os.getenv("DEFAULT_CHAIN", "mockchain"),
+            default_chain=os.getenv("DEFAULT_CHAIN", "ethereum_mainnet"),
             safe_mode=_env_bool("SAFE_MODE", False),
             max_retry=int(os.getenv("MAX_RETRY", "3")),
             etherscan_api_token=os.getenv("ETHERSCAN_API_TOKEN"),
