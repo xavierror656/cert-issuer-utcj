@@ -425,6 +425,7 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
     accent_color = palette.get("gold", "#B88A3B")
     silver_color = palette.get("silver", "#8FA3AD")
 
+    etherscan_url = f"https://sepolia.etherscan.io/tx/{tx_id}" if "sepolia" in chain.lower() else f"https://etherscan.io/tx/{tx_id}"
     pdf_url = f"/certificate/{certificate_id}/pdf"
     json_url = f"/certificate/{certificate_id}"
 
@@ -1406,7 +1407,7 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         <div class="meta-item">
           <h4>Transacción Blockchain</h4>
           <p>{tx_id[:16]}... <span class="copy-btn" onclick="copyToClipboard('{tx_id}', 'tooltip-tx')"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span class="tooltip" id="tooltip-tx">Copiar</span></span></p>
-          <a href="https://etherscan.io/tx/{tx_id}" target="_blank" rel="noopener noreferrer" style="font-size: 11px; color: var(--primary); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;">
+          <a href="{etherscan_url}" target="_blank" rel="noopener noreferrer" style="font-size: 11px; color: var(--primary); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;">
             🔗 Ver Transacción en Etherscan →
           </a>
         </div>
@@ -1419,7 +1420,7 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         <a href="{pdf_url}" download class="btn btn-primary">Descargar PDF Diploma</a>
         <a href="/certificate/{certificate_id}/constancia-pdf" download class="btn btn-primary" style="background: var(--secondary); border-color: var(--secondary);">Descargar Constancia Oficial PDF</a>
         <a href="{json_url}" download class="btn btn-secondary">Descargar JSON (Blockcerts)</a>
-        <a href="https://etherscan.io/tx/{tx_id}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="border-color: #3B82F6; color: #2563EB; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <a href="{etherscan_url}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="border-color: #3B82F6; color: #2563EB; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
           Explorar en Etherscan
         </a>
