@@ -623,7 +623,18 @@ export function LandingPage() {
                   <span class="text-xs font-bold text-white text-right">{result.hours} Horas</span>
                 </div>
                 <div class="flex flex-col gap-1.5 pt-1">
-                  <span class="text-[11px] font-bold text-slate-400 uppercase">Anclaje de Transacción Ethereum</span>
+                  <div class="flex justify-between items-center">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase">Anclaje de Transacción Ethereum</span>
+                    <a 
+                      href={`https://etherscan.io/tx/${result.txId?.replace(/^0x/, '')}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      class="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1 underline"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                      Ver en Etherscan
+                    </a>
+                  </div>
                   <span class="text-[10px] font-mono text-slate-400 break-all select-all font-semibold leading-relaxed bg-slate-950 border border-slate-800 rounded-lg p-2.5">{result.txId}</span>
                 </div>
               </div>

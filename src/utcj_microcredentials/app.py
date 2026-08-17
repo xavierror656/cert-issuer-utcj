@@ -1403,7 +1403,13 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         <div class="meta-item"><h4>Horas</h4><p>{hours}</p></div>
         <div class="meta-item"><h4>Estatus</h4><p>{grade}</p></div>
         <div class="meta-item"><h4>Red</h4><p>{chain}</p></div>
-        <div class="meta-item"><h4>Transacción</h4><p>{tx_id[:16]}... <span class="copy-btn" onclick="copyToClipboard('{tx_id}', 'tooltip-tx')"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span class="tooltip" id="tooltip-tx">Copiar</span></span></p></div>
+        <div class="meta-item">
+          <h4>Transacción Blockchain</h4>
+          <p>{tx_id[:16]}... <span class="copy-btn" onclick="copyToClipboard('{tx_id}', 'tooltip-tx')"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span class="tooltip" id="tooltip-tx">Copiar</span></span></p>
+          <a href="https://etherscan.io/tx/{tx_id}" target="_blank" rel="noopener noreferrer" style="font-size: 11px; color: var(--primary); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;">
+            🔗 Ver Transacción en Etherscan →
+          </a>
+        </div>
         <div class="meta-item"><h4>Emisor</h4><p>{issued_by}</p></div>
       </div>
 
@@ -1413,6 +1419,10 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
         <a href="{pdf_url}" download class="btn btn-primary">Descargar PDF Diploma</a>
         <a href="/certificate/{certificate_id}/constancia-pdf" download class="btn btn-primary" style="background: var(--secondary); border-color: var(--secondary);">Descargar Constancia Oficial PDF</a>
         <a href="{json_url}" download class="btn btn-secondary">Descargar JSON (Blockcerts)</a>
+        <a href="https://etherscan.io/tx/{tx_id}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="border-color: #3B82F6; color: #2563EB; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          Explorar en Etherscan
+        </a>
         <button onclick="startVerification()" class="btn btn-secondary" style="border-color: var(--primary); color: var(--primary); font-weight: 700; background: var(--green-light);">
           Verificar Criptografía Local
         </button>
