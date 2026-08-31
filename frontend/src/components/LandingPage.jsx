@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import confetti from 'canvas-confetti';
+import CinematicTechCanvas from './CinematicTechCanvas';
 
 // Ensure basic fallback for Buffer if required by blockchain libraries in browser
 if (typeof window !== 'undefined' && !window.Buffer) {
@@ -299,6 +300,7 @@ export function LandingPage() {
       justifyContent: 'space-between', 
       fontFamily: "'Inter', sans-serif" 
     }}>
+      <CinematicTechCanvas verifying={verifying} />
       
       <div>
         
