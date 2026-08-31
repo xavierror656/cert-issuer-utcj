@@ -22,92 +22,36 @@ const officialCourses = [
     category: 'Seguridad Digital',
     title: 'Ciberseguridad e Infraestructuras TI (ISO/IEC 27001)',
     hours: 120,
-    badge: 'Seguridad TI',
-    color: '#114938',
+    badge: 'Ciberseguridad ISO 27001',
     sampleQuery: 'UTCJ-2026-MC-66852',
-    desc: 'Dominio de la norma ISO/IEC 27001, gestión de riesgos informáticos, arquitectura criptográfica y protección de activos digitales.',
-    skills: [
-      'Implementación de Controles ISO 27001',
-      'Gestión de Vulnerabilidades y Riesgos TI',
-      'Auditoría y Cumplimiento de Ciberseguridad',
-      'Protección de Infraestructuras Críticas',
-      'Respuesta y Mitigación de Incidentes'
-    ],
-    modules: [
-      'Módulo I: Marco Regulatorio y Fundamentos de Ciberseguridad',
-      'Módulo II: Arquitectura Criptográfica y Control de Accesos',
-      'Módulo III: Gestión de Riesgos, Amenazas y Vulnerabilidades',
-      'Módulo IV: Auditoría, Cumplimiento y Continuidad de Negocio'
-    ]
+    desc: 'Dominio de la norma ISO/IEC 27001, gestión de riesgos informáticos, arquitectura criptográfica y protección de activos digitales.'
   },
   {
     id: 'semiconductors',
     category: 'Microelectrónica',
     title: 'Semiconductores, Microelectrónica y Tecnología MEMS',
     hours: 140,
-    badge: 'Alta Tecnología',
-    color: '#B88A3B',
+    badge: 'Semiconductores y MEMS',
     sampleQuery: '82f25dcc-2339-4d06-ae86-d01964cf81cb',
-    desc: 'Cadena de valor de semiconductores, física de estado sólido, técnicas de litografía en cuarto limpio y diseño de microsistemas MEMS.',
-    skills: [
-      'Diseño de Dispositivos Microelectrónicos',
-      'Tecnología y Litografía de MEMS',
-      'Física de Materiales Semiconductores',
-      'Simulación CAD y Arquitectura VLSI',
-      'Metrología y Pruebas en Cuarto Limpio'
-    ],
-    modules: [
-      'Módulo I: Física de Semiconductores y Dispositivos de Estado Sólido',
-      'Módulo II: Diseño y Simulación de MEMS',
-      'Módulo III: Procesos de Litografía y Fabricación en Cuarto Limpio',
-      'Módulo IV: Empaquetado, Pruebas y Control de Calidad'
-    ]
+    desc: 'Cadena de valor de semiconductores, física de estado sólido, técnicas de litografía en cuarto limpio y diseño de microsistemas MEMS.'
   },
   {
     id: 'automation',
     category: 'Automatización',
     title: 'Automatización Industrial y Controladores Lógicos (PLC)',
     hours: 100,
-    badge: 'Mecatrónica',
-    color: '#146049',
+    badge: 'Automatización PLC',
     sampleQuery: 'eec2f87b-6cf2-4d95-824d-d1735c251cee',
-    desc: 'Ingeniería de control industrial, programación de rutinas PLC bajo norma IEC 61131-3, redes Modbus/Profinet e interfaces HMI.',
-    skills: [
-      'Programación en Lógica de Escalera (Ladder/Grafcet)',
-      'Configuración y Dimensionamiento de PLC',
-      'Integración de Sensores y Actuadores Industriales',
-      'Protocolos de Comunicación (Modbus/Profinet)',
-      'Mantenimiento y Diagnóstico de Automatismos'
-    ],
-    modules: [
-      'Módulo I: Arquitectura del Hardware y Selección de Controladores',
-      'Módulo II: Lenguajes de Programación IEC 61131-3',
-      'Módulo III: Interfaces Hombre-Máquina (HMI) y Redes de Campo',
-      'Módulo IV: Puesta en Marcha, Seguridad Funcional y Diagnóstico'
-    ]
+    desc: 'Ingeniería de control industrial, programación de rutinas PLC bajo norma IEC 61131-3, redes Modbus/Profinet e interfaces HMI.'
   },
   {
     id: 'powerbi',
     category: 'Analítica de Datos',
     title: 'Inteligencia de Negocios y Analítica con Power BI',
     hours: 90,
-    badge: 'Ciencia de Datos',
-    color: '#3F9089',
+    badge: 'Analítica Power BI',
     sampleQuery: 'UTCJ-2026-MC-15761',
-    desc: 'Modelado relacional y dimensional de datos con DAX avanzado, procesos de ETL en Power Query y desarrollo de dashboards gerenciales.',
-    skills: [
-      'Modelado de Datos Relacional y DAX',
-      'ETL y Transformación con Power Query',
-      'Diseño de Dashboards y Reportes Ejecutivos',
-      'Analítica de Negocios y Métricas Clave (KPIs)',
-      'Gobernanza y Publicación de Soluciones BI'
-    ],
-    modules: [
-      'Módulo I: Extracción y Transformación de Fuentes de Datos (ETL)',
-      'Módulo II: Modelado Dimensional y Fórmulas DAX Avanzadas',
-      'Módulo III: Diseño de Visualizaciones y Experiencia de Usuario',
-      'Módulo IV: Despliegue, Seguridad y Gobernanza de Datos'
-    ]
+    desc: 'Modelado relacional y dimensional de datos con DAX avanzado, procesos de ETL en Power Query y desarrollo de dashboards gerenciales.'
   }
 ];
 
@@ -120,7 +64,6 @@ export function LandingPage() {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
-  const [selectedCourseTab, setSelectedCourseTab] = useState('cybersecurity');
 
   const startCameraScanner = async () => {
     setCameraActive(true);
@@ -339,14 +282,17 @@ export function LandingPage() {
     }
   };
 
-  const activeCourse = officialCourses.find(c => c.id === selectedCourseTab) || officialCourses[0];
-
   return (
     <div style={{ 
-      backgroundColor: '#F3F7F4',
-      position: 'relative',
-      overflowX: 'hidden',
-      color: '#1E293B', 
+      backgroundColor: '#0A251D',
+      backgroundImage: `
+        linear-gradient(180deg, rgba(10, 37, 29, 0.82) 0%, rgba(17, 73, 56, 0.88) 45%, rgba(6, 22, 17, 0.94) 100%),
+        url('/assets/utcj_tech_background.jpg')
+      `,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center top',
+      backgroundAttachment: 'fixed',
+      color: '#FFFFFF', 
       minHeight: '100vh', 
       display: 'flex', 
       flexDirection: 'column', 
@@ -354,26 +300,15 @@ export function LandingPage() {
       fontFamily: "'Inter', sans-serif" 
     }}>
       
-      {/* Dynamic 4-Course Technology Vector Watermark Background */}
-      <div style={{
-        position: 'fixed',
-        inset: 0,
-        pointerEvents: 'none',
-        zIndex: 0,
-        opacity: 0.045,
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='800' height='800' viewBox='0 0 800 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23114938' stroke-width='1.5'%3E%3C!-- Cybersecurity / Shield & Cryptography --%3E%3Cpath d='M150,100 L250,100 L280,180 L200,260 L120,180 Z'/%3E%3Ccircle cx='200' cy='170' r='24'/%3E%3Cpath d='M190,165 L210,165 L210,185 L190,185 Z'/%3E%3Cpath d='M200,150 L200,165'/%3E%3Cpath d='M50,100 L150,100 M250,100 L350,100'/%3E%3C!-- Semiconductors & VLSI Chips --%3E%3Crect x='500' y='80' width='140' height='140' rx='10'/%3E%3Crect x='530' y='110' width='80' height='80' rx='4'/%3E%3Cpath d='M500,100 L470,100 M500,130 L470,130 M500,160 L470,160 M500,190 L470,190'/%3E%3Cpath d='M640,100 L670,100 M640,130 L670,130 M640,160 L670,160 M640,190 L670,190'/%3E%3Cpath d='M530,80 L530,50 M570,80 L570,50 M610,80 L610,50'/%3E%3Cpath d='M530,220 L530,250 M570,220 L570,250 M610,220 L610,250'/%3E%3C!-- Automation / PLC & Ladder Logic --%3E%3Cpath d='M100,500 L100,700 M300,500 L300,700' stroke-width='2.5'/%3E%3Cpath d='M100,550 L160,550 M190,550 L300,550'/%3E%3Cpath d='M160,535 L160,565 M190,535 L190,565'/%3E%3Cpath d='M100,620 L180,620 M220,620 L300,620'/%3E%3Ccircle cx='200' cy='620' r='15'/%3E%3Cpath d='M100,670 L150,670 M150,670 L190,650 L230,670 L300,670'/%3E%3C!-- Business Intelligence & Power BI Charts --%3E%3Crect x='500' y='500' width='200' height='160' rx='8'/%3E%3Crect x='530' y='590' width='25' height='50' fill='%23114938' fill-opacity='0.2'/%3E%3Crect x='570' y='560' width='25' height='80' fill='%23114938' fill-opacity='0.2'/%3E%3Crect x='610' y='530' width='25' height='110' fill='%23114938' fill-opacity='0.2'/%3E%3Crect x='650' y='570' width='25' height='70' fill='%23114938' fill-opacity='0.2'/%3E%3Cpath d='M542,570 L582,540 L622,510 L662,550' stroke-width='2'/%3E%3C!-- Blockchain Nodes & Interconnection Mesh --%3E%3Ccircle cx='400' cy='400' r='30'/%3E%3Ccircle cx='400' cy='400' r='10'/%3E%3Cpath d='M280,180 L400,370 M530,190 L400,370 M200,535 L400,430 M530,530 L400,430' stroke-dasharray='4,4'/%3E%3C/g%3E%3C/svg%3E")`,
-        backgroundSize: '700px 700px',
-        backgroundRepeat: 'repeat'
-      }}></div>
-
-      <div style={{ position: 'relative', zIndex: 10 }}>
+      <div>
         
         {/* Institutional Top Prestige Header */}
         <header style={{ 
-          backgroundColor: '#FFFFFF', 
+          backgroundColor: 'rgba(255, 255, 255, 0.96)', 
+          backdropFilter: 'blur(12px)',
           borderBottom: '2px solid #B88A3B', 
           padding: '16px 28px', 
-          boxShadow: '0 4px 20px rgba(17, 73, 56, 0.06)',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
           position: 'sticky',
           top: 0,
           zIndex: 30
@@ -444,55 +379,57 @@ export function LandingPage() {
         </header>
 
         {/* Hero Section with 4 Pillars Highlights */}
-        <section style={{ maxWidth: '1080px', margin: '36px auto 20px', padding: '0 20px', textAlign: 'center' }}>
+        <section style={{ maxWidth: '1080px', margin: '40px auto 24px', padding: '0 20px', textAlign: 'center' }}>
           
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#FFFFFF', border: '1.5px solid #C4E2D5', padding: '6px 18px', borderRadius: '30px', marginBottom: '16px', boxShadow: '0 2px 10px rgba(17, 73, 56, 0.05)' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#146049' }}></span>
-            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11.5px', fontWeight: '800', color: '#114938', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              Validación Oficial en Blockchain • 4 Ejes Tecnológicos UTCJ
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 255, 255, 0.12)', backdropFilter: 'blur(8px)', border: '1.5px solid rgba(209, 223, 140, 0.4)', padding: '6px 20px', borderRadius: '30px', marginBottom: '18px', boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#93C01F', boxShadow: '0 0 10px #93C01F' }}></span>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11.5px', fontWeight: '800', color: '#D1DF8C', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              Validación Criptográfica en Blockchain • 4 Ejes Tecnológicos UTCJ
             </span>
           </div>
 
-          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '36px', fontWeight: '900', color: '#114938', margin: '0 0 12px', letterSpacing: '-0.5px' }}>
+          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '38px', fontWeight: '900', color: '#FFFFFF', margin: '0 0 14px', letterSpacing: '-0.5px', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
             Portal Universitario de Microcredenciales Verificables
           </h2>
           
-          <p style={{ fontSize: '14.5px', color: '#475569', lineHeight: '1.6', maxWidth: '820px', margin: '0 auto 24px' }}>
-            Valide de forma instantánea e inmutable las competencias académicas acreditadas en los 4 programas oficiales de la UTCJ: <strong>Ciberseguridad ISO 27001</strong>, <strong>Semiconductores y MEMS</strong>, <strong>Automatización PLC</strong> y <strong>Analítica Power BI</strong>.
+          <p style={{ fontSize: '15px', color: '#E2E8F0', lineHeight: '1.6', maxWidth: '840px', margin: '0 auto 28px', textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
+            Compruebe la autenticidad académica, integridad de firma digital y validez curricular de títulos universitarios en los 4 programas oficiales de la UTCJ: <strong>Ciberseguridad ISO 27001</strong>, <strong>Semiconductores y MEMS</strong>, <strong>Automatización PLC</strong> y <strong>Analítica Power BI</strong>.
           </p>
 
           {/* Real-Time Metrics Strip */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap', marginBottom: '28px' }}>
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '10px 18px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '17px', fontWeight: '900', color: '#114938' }}>100% Inmutable</div>
-              <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>Blockchain Ethereum</div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap', marginBottom: '32px' }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '12px 20px', borderRadius: '10px', textAlign: 'center', minWidth: '150px' }}>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '18px', fontWeight: '900', color: '#D1DF8C' }}>100% Inmutable</div>
+              <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#E2E8F0', textTransform: 'uppercase' }}>Blockchain Ethereum</div>
             </div>
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '10px 18px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '17px', fontWeight: '900', color: '#B88A3B' }}>4 Ejes Oficiales</div>
-              <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>Programas Acreditados</div>
+            <div style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '12px 20px', borderRadius: '10px', textAlign: 'center', minWidth: '150px' }}>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '18px', fontWeight: '900', color: '#F1D69D' }}>4 Ejes Oficiales</div>
+              <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#E2E8F0', textTransform: 'uppercase' }}>Programas Acreditados</div>
             </div>
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '10px 18px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '17px', fontWeight: '900', color: '#146049' }}>&lt; 40 ms</div>
-              <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>Prueba de Merkle</div>
+            <div style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '12px 20px', borderRadius: '10px', textAlign: 'center', minWidth: '150px' }}>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '18px', fontWeight: '900', color: '#93C01F' }}>&lt; 40 ms</div>
+              <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#E2E8F0', textTransform: 'uppercase' }}>Prueba de Merkle</div>
             </div>
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '10px 18px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '17px', fontWeight: '900', color: '#114938' }}>08MSU0017R</div>
-              <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>Clave Oficial SEP</div>
+            <div style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '12px 20px', borderRadius: '10px', textAlign: 'center', minWidth: '150px' }}>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '18px', fontWeight: '900', color: '#FFFFFF' }}>08MSU0017R</div>
+              <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#E2E8F0', textTransform: 'uppercase' }}>Clave Oficial SEP</div>
             </div>
           </div>
 
         </section>
 
         {/* Grand University Diploma Card Framing */}
-        <section id="validador-principal" style={{ maxWidth: '940px', margin: '0 auto 40px', padding: '0 20px' }}>
+        <section id="validador-principal" style={{ maxWidth: '940px', margin: '0 auto 48px', padding: '0 20px' }}>
           
           <div style={{ 
-            background: '#FFFFFF', 
+            background: 'rgba(255, 255, 255, 0.98)', 
+            backdropFilter: 'blur(16px)',
             border: '2.5px solid #B88A3B', 
-            borderRadius: '14px', 
+            borderRadius: '16px', 
             padding: '12px', 
-            boxShadow: '0 12px 40px rgba(17, 73, 56, 0.1)', 
-            position: 'relative' 
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)', 
+            position: 'relative',
+            color: '#1E293B'
           }}>
             
             {/* Corner Ornaments */}
@@ -504,8 +441,8 @@ export function LandingPage() {
             {/* Inner Border */}
             <div style={{ 
               border: '1.5px solid #114938', 
-              borderRadius: '8px', 
-              padding: '26px 30px', 
+              borderRadius: '10px', 
+              padding: '28px 32px', 
               background: '#FAFDFB'
             }}>
               
@@ -626,7 +563,7 @@ export function LandingPage() {
                   </div>
 
                   {/* Quick Test Demo Badges */}
-                  <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px dashed #E2E8F0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px dashed #E2E8F0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase' }}>
                       Probar con los 4 Ejes Tecnológicos:
                     </span>
@@ -636,8 +573,8 @@ export function LandingPage() {
                         type="button"
                         onClick={() => executeSearch(c.sampleQuery)}
                         style={{
-                          background: '#FFFFFF',
-                          border: '1px solid #CBD5E1',
+                          background: '#F0F7F4',
+                          border: '1px solid #C4E2D5',
                           borderRadius: '20px',
                           padding: '4px 12px',
                           fontSize: '11px',
@@ -838,158 +775,40 @@ export function LandingPage() {
 
         </section>
 
-        {/* 4 Official Technological Courses Showcase */}
-        <section style={{ maxWidth: '1080px', margin: '0 auto 48px', padding: '0 20px' }}>
-          
-          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#EBF5F0', border: '1px solid #C4E2D5', padding: '4px 14px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', fontFamily: "'Montserrat', sans-serif", textTransform: 'uppercase', color: '#114938', marginBottom: '8px' }}>
-              Catálogo Curricular Institucional
-            </div>
-            <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '26px', fontWeight: '900', color: '#114938', margin: '0 0 6px' }}>
-              Los 4 Ejes Tecnológicos de Microcredenciales UTCJ
-            </h3>
-            <p style={{ fontSize: '13.5px', color: '#64748B', maxWidth: '680px', margin: '0 auto' }}>
-              Explore los contenidos temáticos, competencias certificadas y módulos de los programas de vanguardia acreditados ante el Subsistema UTyP.
-            </p>
-          </div>
-
-          {/* Course Selector Tabs */}
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '24px' }}>
-            {officialCourses.map(c => (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCourseTab(c.id)}
-                style={{
-                  padding: '9px 18px',
-                  borderRadius: '6px',
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontSize: '12px',
-                  fontWeight: '800',
-                  border: '1.5px solid',
-                  borderColor: selectedCourseTab === c.id ? '#114938' : '#CBD5E1',
-                  background: selectedCourseTab === c.id ? '#114938' : '#FFFFFF',
-                  color: selectedCourseTab === c.id ? '#FFFFFF' : '#475569',
-                  cursor: 'pointer',
-                  boxShadow: selectedCourseTab === c.id ? '0 2px 8px rgba(17,73,56,0.2)' : 'none',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                {c.badge}: {c.category}
-              </button>
-            ))}
-          </div>
-
-          {/* Active Course Card Detail */}
-          <div style={{ background: '#FFFFFF', border: '1.5px solid #B88A3B', borderRadius: '12px', padding: '28px 32px', boxShadow: '0 6px 25px rgba(0,0,0,0.03)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid #E2E8F0', paddingBottom: '16px', marginBottom: '20px' }}>
-              <div>
-                <span style={{ fontSize: '11px', fontWeight: '800', fontFamily: "'Montserrat', sans-serif", color: '#8C6527', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                  {activeCourse.category} • Programa Oficial UTCJ
-                </span>
-                <h4 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '18px', fontWeight: '900', color: '#114938', margin: '4px 0 6px' }}>
-                  {activeCourse.title}
-                </h4>
-                <p style={{ fontSize: '13px', color: '#475569', margin: 0, maxWidth: '720px' }}>
-                  {activeCourse.desc}
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ background: '#F0F7F4', border: '1px solid #C4E2D5', padding: '8px 14px', borderRadius: '6px', textAlign: 'center' }}>
-                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '16px', fontWeight: '900', color: '#114938' }}>{activeCourse.hours} h</div>
-                  <div style={{ fontSize: '10px', color: '#64748B', fontWeight: '700' }}>Carga Horaria</div>
-                </div>
-                <button
-                  onClick={() => executeSearch(activeCourse.sampleQuery)}
-                  style={{
-                    padding: '10px 18px',
-                    background: '#114938',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontFamily: "'Montserrat', sans-serif",
-                    fontSize: '11.5px',
-                    fontWeight: '800',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(17,73,56,0.2)'
-                  }}
-                >
-                  Probar Validación ↗
-                </button>
-              </div>
-            </div>
-
-            {/* Modules and Skills Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-              
-              {/* Modules Column */}
-              <div>
-                <h5 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12.5px', fontWeight: '800', color: '#114938', textTransform: 'uppercase', marginBottom: '12px' }}>
-                  Estructura de Módulos Académicos
-                </h5>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {activeCourse.modules.map((m, mIdx) => (
-                    <div key={mIdx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '9px 14px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#B88A3B', fontWeight: '900' }}>•</span> {m}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Competencies Column */}
-              <div>
-                <h5 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12.5px', fontWeight: '800', color: '#114938', textTransform: 'uppercase', marginBottom: '12px' }}>
-                  Competencias Laborales Certificadas
-                </h5>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {activeCourse.skills.map((s, sIdx) => (
-                    <span key={sIdx} style={{ background: '#FAF8F5', border: '1px solid #D6C29E', color: '#8C6527', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', fontFamily: "'Montserrat', sans-serif" }}>
-                      ✓ {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-
-        </section>
-
         {/* How It Works - 3 Step Visual Protocol */}
         <section style={{ maxWidth: '1080px', margin: '0 auto 48px', padding: '0 20px' }}>
           
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '24px', fontWeight: '900', color: '#114938', margin: '0 0 6px' }}>
+            <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '26px', fontWeight: '900', color: '#FFFFFF', margin: '0 0 6px', textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
               Protocolo de Verificación Criptográfica en 3 Pasos
             </h3>
-            <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
+            <p style={{ fontSize: '13.5px', color: '#E2E8F0', margin: 0 }}>
               Garantía matemática de autenticidad sin intermediarios y con validez permanente.
             </p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
             
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderTop: '3.5px solid #114938', borderRadius: '8px', padding: '22px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#114938', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '13px', marginBottom: '12px', fontFamily: "'Montserrat', sans-serif" }}>1</div>
-              <h4 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13.5px', fontWeight: '800', color: '#114938', margin: '0 0 8px' }}>Extracción del Hash SHA-256</h4>
-              <p style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.5', margin: 0 }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.96)', backdropFilter: 'blur(10px)', border: '1px solid #E2E8F0', borderTop: '3.5px solid #114938', borderRadius: '10px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)', color: '#1E293B' }}>
+              <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#114938', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '13px', marginBottom: '12px', fontFamily: "'Montserrat', sans-serif" }}>1</div>
+              <h4 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '14px', fontWeight: '800', color: '#114938', margin: '0 0 8px' }}>Extracción del Hash SHA-256</h4>
+              <p style={{ fontSize: '12.5px', color: '#64748B', lineHeight: '1.5', margin: 0 }}>
                 El documento genera una huella digital matemática única e irreversible calculada sobre la estructura normalizada JSON-LD.
               </p>
             </div>
 
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderTop: '3.5px solid #B88A3B', borderRadius: '8px', padding: '22px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#B88A3B', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '13px', marginBottom: '12px', fontFamily: "'Montserrat', sans-serif" }}>2</div>
-              <h4 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13.5px', fontWeight: '800', color: '#114938', margin: '0 0 8px' }}>Comprobación del Árbol de Merkle</h4>
-              <p style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.5', margin: 0 }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.96)', backdropFilter: 'blur(10px)', border: '1px solid #E2E8F0', borderTop: '3.5px solid #B88A3B', borderRadius: '10px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)', color: '#1E293B' }}>
+              <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#B88A3B', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '13px', marginBottom: '12px', fontFamily: "'Montserrat', sans-serif" }}>2</div>
+              <h4 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '14px', fontWeight: '800', color: '#114938', margin: '0 0 8px' }}>Comprobación del Árbol de Merkle</h4>
+              <p style={{ fontSize: '12.5px', color: '#64748B', lineHeight: '1.5', margin: 0 }}>
                 Se reconstruye el recibo criptográfico que vincula la credencial individual con la raíz del lote emitido por la Rectoría de la UTCJ.
               </p>
             </div>
 
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderTop: '3.5px solid #146049', borderRadius: '8px', padding: '22px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#146049', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '13px', marginBottom: '12px', fontFamily: "'Montserrat', sans-serif" }}>3</div>
-              <h4 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13.5px', fontWeight: '800', color: '#114938', margin: '0 0 8px' }}>Confirmación en Blockchain</h4>
-              <p style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.5', margin: 0 }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.96)', backdropFilter: 'blur(10px)', border: '1px solid #E2E8F0', borderTop: '3.5px solid #146049', borderRadius: '10px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)', color: '#1E293B' }}>
+              <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#146049', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '13px', marginBottom: '12px', fontFamily: "'Montserrat', sans-serif" }}>3</div>
+              <h4 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '14px', fontWeight: '800', color: '#114938', margin: '0 0 8px' }}>Confirmación en Blockchain</h4>
+              <p style={{ fontSize: '12.5px', color: '#64748B', lineHeight: '1.5', margin: 0 }}>
                 Se valida el timestamp y la firma en la red Ethereum verificando que la credencial se encuentra activa y sin revocación.
               </p>
             </div>
@@ -1002,25 +821,27 @@ export function LandingPage() {
         <section style={{ maxWidth: '1080px', margin: '0 auto 48px', padding: '0 20px' }}>
           
           <div style={{ 
-            background: 'linear-gradient(135deg, #114938 0%, #146049 60%, #1d7e61 100%)', 
-            borderRadius: '12px', 
-            padding: '28px 36px', 
+            background: 'linear-gradient(135deg, rgba(17, 73, 56, 0.95) 0%, rgba(20, 96, 73, 0.95) 60%, rgba(29, 126, 97, 0.95) 100%)', 
+            backdropFilter: 'blur(12px)',
+            border: '1.5px solid #B88A3B',
+            borderRadius: '14px', 
+            padding: '30px 40px', 
             color: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '20px',
-            boxShadow: '0 8px 30px rgba(17, 73, 56, 0.25)'
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.3)'
           }}>
             <div style={{ maxWidth: '640px' }}>
               <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: '900', color: '#D1DF8C', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>
                 Para Empresas, Corporativos y Reclutadores
               </div>
-              <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '24px', fontWeight: '900', margin: '0 0 8px' }}>
+              <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '26px', fontWeight: '900', margin: '0 0 8px' }}>
                 Portal Institucional de Verificación Masiva
               </h3>
-              <p style={{ fontSize: '13px', color: '#E2E8F0', margin: 0, lineHeight: '1.5' }}>
+              <p style={{ fontSize: '13.5px', color: '#E2E8F0', margin: 0, lineHeight: '1.5' }}>
                 Cargue archivos CSV o listas de candidatos para auditar simultáneamente cientos de títulos y exportar informes oficiales de cumplimiento en PDF.
               </p>
             </div>
@@ -1030,13 +851,13 @@ export function LandingPage() {
               style={{
                 background: '#B88A3B',
                 color: '#FFFFFF',
-                padding: '12px 24px',
+                padding: '14px 28px',
                 borderRadius: '8px',
                 fontFamily: "'Montserrat', sans-serif",
-                fontSize: '12.5px',
+                fontSize: '13px',
                 fontWeight: '900',
                 textDecoration: 'none',
-                boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
                 whiteSpace: 'nowrap'
               }}
             >
@@ -1046,53 +867,17 @@ export function LandingPage() {
 
         </section>
 
-        {/* 3 Security and Legal Assurance Pillars */}
-        <section style={{ maxWidth: '1080px', margin: '0 auto 48px', padding: '0 20px' }}>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px' }}>
-            
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '22px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', fontWeight: '900', color: '#114938', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Estándar Global W3C Blockcerts v3.2
-              </div>
-              <p style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
-                Las credenciales emitidas cumplen con las especificaciones internacionales de credenciales verificables, garantizando portabilidad y reconocimiento global en cualquier validador compatible.
-              </p>
-            </div>
-
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '22px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', fontWeight: '900', color: '#114938', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Anclaje Inmutable en Ethereum
-              </div>
-              <p style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
-                Cada certificado cuenta con una prueba matemática de Merkle sellada criptográficamente en la cadena de bloques, impidiendo cualquier intento de alteración o falsificación histórica.
-              </p>
-            </div>
-
-            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '22px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', fontWeight: '900', color: '#114938', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Validez Curricular e Institucional
-              </div>
-              <p style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
-                Documentos expedidos con sello oficial y firma electrónica de Rectoría y Secretaría Académica de la UTCJ conforme a la normatividad universitaria vigente y la Ley General de Educación.
-              </p>
-            </div>
-
-          </div>
-
-        </section>
-
       </div>
 
       {/* Dual-Tone Formal Footer */}
-      <footer style={{ width: '100%' }}>
+      <footer style={{ width: '100%', position: 'relative', zIndex: 10 }}>
         <div style={{ height: '6px', background: 'linear-gradient(90deg, #8C6527 0%, #B88A3B 50%, #8C6527 100%)', width: '100%' }}></div>
-        <div style={{ background: '#114938', color: '#FFFFFF', padding: '20px 28px', fontSize: '12px' }}>
+        <div style={{ background: '#0A251D', borderTop: '1px solid rgba(255, 255, 255, 0.1)', color: '#FFFFFF', padding: '22px 28px', fontSize: '12px' }}>
           <div style={{ maxWidth: '1240px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
             <div>
               <strong>Universidad Tecnológica de Ciudad Juárez</strong> • Clave CCT: 08MSU0017R • Av. Universidad Tecnológica 3051, Cd. Juárez, Chih.
             </div>
-            <div style={{ color: '#D1E7DD', fontSize: '11px' }}>
+            <div style={{ color: '#D1DF8C', fontSize: '11px' }}>
               Sistema Institucional de Microcredenciales • W3C Blockcerts v3.2 • Ethereum Blockchain Anchor
             </div>
           </div>
