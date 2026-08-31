@@ -12,10 +12,18 @@
         <FIELD NAME="certificateurl" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="pdfurl" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="timeissued" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="active" SEQUENCE="false"/>
+        <FIELD NAME="timerevoked" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="certificateid" TYPE="unique" FIELDS="certificateid"/>
       </KEYS>
+      <INDEXES>
+        <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
+        <INDEX NAME="userid" UNIQUE="false" FIELDS="userid"/>
+        <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
+      </INDEXES>
     </TABLE>
   </TABLES>
 </XMLDB>

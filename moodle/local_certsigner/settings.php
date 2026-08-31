@@ -23,16 +23,20 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_configpasswordunmask(
         'local_certsigner/api_key',
         get_string('api_key', 'local_certsigner'),
-        get_string('api_key_desc', 'local_certsigner'),
-        'issuersecretkey'
+        get_string('api_key_desc', 'local_certsigner') . ' <b>Deja vacío para deshabilitar emisión.</b>',
+        ''
     ));
 
-    $settings->add(new admin_setting_configtext(
+    $settings->add(new admin_setting_configselect(
         'local_certsigner/chain_default',
         get_string('chain_default', 'local_certsigner'),
-        '',
-        'ethereum_mainnet',
-        PARAM_TEXT
+        'Testnet (Sepolia) es gratis, Mainnet cuesta ~$1/tx. Cambia a ethereum_sepolia para probar sin fondear.',
+        'ethereum_sepolia',
+        array(
+            'ethereum_sepolia' => 'ethereum_sepolia (Testnet Sepolia - GRATIS)',
+            'ethereum_mainnet' => 'ethereum_mainnet (Mainnet - $1/tx, requiere fondeo)',
+            'mockchain' => 'mockchain (Demo sin blockchain)',
+        )
     ));
 
     $settings->add(new admin_setting_configtext(

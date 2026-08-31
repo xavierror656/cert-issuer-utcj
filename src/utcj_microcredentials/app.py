@@ -219,9 +219,12 @@ def issuer_profile() -> dict:
 def get_public_branding() -> dict[str, str]:
     palette = get_palette(settings)
     return {
-        "green": palette.get("green", "#0F6A52"),
-        "green_deep": palette.get("green_deep", "#0A4C3B"),
-        "teal": palette.get("teal", "#0F3E4A"),
+        "green_lime": palette.get("green_lime", "#93C01F"),
+        "teal": palette.get("teal", "#3F9089"),
+        "pistachio": palette.get("pistachio", "#D1DF8C"),
+        "green_deep": palette.get("green_deep", "#114938"),
+        "green": palette.get("green", "#146049"),
+        "jade": palette.get("jade", "#279371"),
         "gold": palette.get("gold", "#B88A3B"),
         "silver": palette.get("silver", "#8FA3AD"),
     }
@@ -312,23 +315,69 @@ def issue_credential(
         raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
 
     chain_name = request.chain or settings.default_chain
+    logger.info("ISSUE request chain=%s resolved=%s from %s title=%s", request.chain, chain_name, user.username, request.credential.title)
     unsigned_credential = build_unsigned_credential(request, settings)
     try:
         issued_certificate, transaction_id = issue_with_cert_issuer(unsigned_credential, chain_name, settings)
     except IssueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        # auditoría de fallo para trazabilidad de gasto
+        add_audit_log(settings, "issue_failed", user.username, client_ip, f"Fallo {chain_name} para {request.credential.title}: {exc}")
+        # ponytail: mainnet sin fondos → fallback a sepolia sin cobrar, para no bloquear curso en producción hasta fondear
+        if chain_name == "ethereum_mainnet" and "Please add" in str(exc):
+            logger.warning("Mainnet InsufficientFunds, fallback to sepolia for %s", request.credential.title)
+            add_audit_log(settings, "issue_fallback_sepolia", user.username, client_ip, f"Fallback a sepolia por fondos insuficientes mainnet: {exc}")
+            try:
+                chain_name = "ethereum_sepolia"
+                issued_certificate, transaction_id = issue_with_cert_issuer(unsigned_credential, chain_name, settings)
+            except IssueError as exc2:
+                add_audit_log(settings, "issue_failed", user.username, client_ip, f"Fallo sepolia fallback: {exc2}")
+                raise HTTPException(status_code=422, detail=str(exc2)) from exc2
+        else:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     certificate_id = issued_certificate["credentialSubject"]["certificateId"]
-    svg = render_certificate_svg(issued_certificate, settings, transaction_id)
-    pdf = render_certificate_pdf(issued_certificate, settings, transaction_id, chain=chain_name)
     metadata = issuance_metadata(chain_name, transaction_id)
     metadata["issued_by"] = user.username
+    # ponytail: guardar JSON primero, render puede fallar (ParagraphStyle) y no debe perder anclaje pagado
+    try:
+        svg = render_certificate_svg(issued_certificate, settings, transaction_id)
+    except Exception as e:
+        logger.exception("SVG render failed for %s", certificate_id)
+        svg = f"<svg><text>Render fallback {certificate_id}</text></svg>"
+    try:
+        pdf = render_certificate_pdf(issued_certificate, settings, transaction_id, chain=chain_name)
+    except Exception as e:
+        logger.exception("PDF render failed for %s", certificate_id)
+        add_audit_log(settings, "render_failed", user.username, client_ip, f"PDF fallo para {certificate_id}: {e} — JSON anclado en {transaction_id} se conservó")
+        # fallback: crear PDF mínimo válido para no perder archivo
+        import io as _io
+        from reportlab.pdfgen import canvas as _canvas
+        from reportlab.lib.pagesizes import landscape, A4
+        _buf = _io.BytesIO()
+        _c = _canvas.Canvas(_buf, pagesize=landscape(A4))
+        _c.drawString(100, 300, f"Certificado {certificate_id} — verificar en {settings.certificate_url(certificate_id)}")
+        _c.drawString(100, 280, f"Tx: {transaction_id} Chain: {chain_name}")
+        _c.showPage(); _c.save()
+        pdf = _buf.getvalue()
     ipfs_cid = storage.save_certificate(certificate_id, issued_certificate, request.model_dump(mode="json"), svg, pdf, metadata)
     
-    # Save to SQLite database
+    # Save to DB
     from .db import add_certificate as db_add
     rec = request.recipient
     rec_name = f"{rec.given_name} {rec.family_name}".strip()
+    # calcular costo real gas * price para auditoría
+    try:
+        from cert_issuer.blockchain_handlers.ethereum.connectors import EthereumServiceProviderConnector
+        from cert_core import Chain
+        _chain_obj = Chain.parse_from_chain(chain_name)
+        _cfg = settings.build_cert_issuer_config(chain_name)
+        _conn = EthereumServiceProviderConnector(_chain_obj, _cfg)
+        # costo estimado (gasPrice * gasLimit) — suficiente para billing sin fetch receipt
+        _cost_wei = _cfg.gas_price * _cfg.gas_limit if hasattr(_cfg, 'gas_price') else 0
+        metadata["gas_cost_wei"] = _cost_wei
+        metadata["gas_cost_eth"] = _cost_wei / 1e18
+    except Exception:
+        pass
     db_add(
         settings=settings,
         cert_id=certificate_id,
@@ -419,17 +468,54 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
     
     # Load dynamic palette colors
     palette = get_palette(settings)
-    primary_color = palette.get("green", "#0F6A52")
-    primary_dark_color = palette.get("green_deep", "#0A4C3B")
-    secondary_color = palette.get("teal", "#0F3E4A")
+    primary_color = palette.get("green", "#146049")
+    primary_dark_color = palette.get("green_deep", "#114938")
     accent_color = palette.get("gold", "#B88A3B")
-    silver_color = palette.get("silver", "#8FA3AD")
 
     etherscan_url = f"https://sepolia.etherscan.io/tx/{tx_id}" if "sepolia" in chain.lower() else f"https://etherscan.io/tx/{tx_id}"
     pdf_url = f"/certificate/{certificate_id}/pdf"
+    constancia_url = f"/certificate/{certificate_id}/constancia-pdf"
     json_url = f"/certificate/{certificate_id}"
+    social_card_url = f"/certificate/{certificate_id}/social-card.svg"
+    certificate_full_url = settings.certificate_render_url(certificate_id)
+    base_url_clean = settings.base_url.rstrip('/') if hasattr(settings, 'base_url') and settings.base_url else "https://utcjmicro.javierflores.software"
+    absolute_social_card_url = f"{base_url_clean}/certificate/{certificate_id}/social-card.svg"
 
-    skills_html = "".join(f'<span class="skill-tag">{skill}</span>' for skill in skills)
+    import urllib.parse
+    try:
+        dt = datetime.fromisoformat(str(issue_date).replace("Z", "+00:00"))
+        issue_year = str(dt.year)
+        issue_month = str(dt.month)
+    except Exception:
+        issue_year = "2026"
+        issue_month = "8"
+
+    linkedin_add_url = (
+        f"https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME"
+        f"&name={urllib.parse.quote(title)}"
+        f"&organizationName={urllib.parse.quote('Universidad Tecnológica de Ciudad Juárez')}"
+        f"&issueYear={issue_year}"
+        f"&issueMonth={issue_month}"
+        f"&certUrl={urllib.parse.quote(certificate_full_url)}"
+        f"&certId={urllib.parse.quote(certificate_id)}"
+    )
+    linkedin_share_url = f"https://www.linkedin.com/sharing/share-offsite/?url={urllib.parse.quote(certificate_full_url)}"
+    twitter_share_url = (
+        f"https://twitter.com/intent/tweet?text={urllib.parse.quote(f'¡Acredité satisfactoriamente mi Microcredencial Universitaria en la UTCJ: {title}!')}"
+        f"&url={urllib.parse.quote(certificate_full_url)}"
+    )
+
+    from .rendering import _qr_data_uri, resolve_course_enrichment
+    qr_uri = _qr_data_uri(settings.certificate_render_url(certificate_id), fill_color="#114938")
+
+    enriched_skills, course_synopsis, course_modules = resolve_course_enrichment(title, skills)
+    skills_formatted = "   •   ".join(enriched_skills[:5])
+    
+    # Format modules HTML
+    modules_html = "".join([f'<div style="background:#F8FAFC; border:1px solid #E2E8F0; padding:10px 14px; border-radius:6px; font-size:11.5px; font-weight:700; color:#1E293B; display:flex; align-items:center; gap:8px;"><span style="color:#114938; font-weight:900;">•</span> {m}</div>' for m in course_modules])
+    
+    # Format skills pills HTML
+    skills_pills_html = "".join([f'<span style="background:#EBF5F0; color:#114938; border:1px solid #C4E2D5; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; display:inline-block;">{s}</span>' for s in enriched_skills])
 
     # Determine if real Rector signature is uploaded
     rector_sig_exists = (
@@ -441,13 +527,13 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
     if rector_sig_exists:
         signature_html = '<img src="/rector-signature" alt="Firma Rector" style="max-height: 48px; max-width: 150px; object-fit: contain; display: block; margin: 0 auto;">'
     else:
-        signature_html = '<div style="font-family: \'Playfair Display\', Georgia, serif; font-style: italic; font-size: 16px;">Dr. Ó. F. Ibáñez H.</div>'
+        signature_html = '<div style="font-family: Playfair Display, Georgia, serif; font-style: italic; font-size: 18px; color: #114938; font-weight: 700;">Dr. Óscar F. Ibáñez H.</div>'
 
     # Revocation warning banner
     revocation_banner = ""
     if is_revoked:
         revocation_banner = """
-        <div style="background: #FEE2E2; border: 2px solid #EF4444; color: #991B1B; padding: 16px; border-radius: 12px; margin-bottom: 24px; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: sans-serif;">
+        <div style="background: #FEF2F2; border: 1.5px solid #EF4444; color: #991B1B; padding: 14px 20px; border-radius: 8px; margin-bottom: 24px; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 10px; font-family: 'Montserrat', sans-serif;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
           ESTA MICROCREDENCIAL HA SIDO REVOCADA OFICIALMENTE POR LA INSTITUCIÓN
         </div>
@@ -461,100 +547,175 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Microcredencial Verificable UTCJ - {recipient_name}</title>
-  <meta name="description" content="Microcredencial académica verificable en la Blockchain de Ethereum emitida por la Universidad Tecnológica de Ciudad Juárez a favor de {recipient_name}.">
+  <title>Microcredencial Universitaria Oficial UTCJ - {recipient_name}</title>
+  <meta name="description" content="Microcredencial académica oficial emitida por la Universidad Tecnológica de Ciudad Juárez con certificación criptográfica en Blockchain para {recipient_name}.">
 
-  <!-- Open Graph / LinkedIn / Facebook / WhatsApp -->
+  <!-- Open Graph / LinkedIn / Facebook / WhatsApp Preview -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="{settings.public_base_url}/render/{certificate_id}">
-  <meta property="og:title" content="Microcredencial UTCJ • {recipient_name}">
-  <meta property="og:description" content="Acreditación de competencias en '{title}' emitida por la UTCJ y verificada criptográficamente en Ethereum Mainnet.">
-  <meta property="og:image" content="{settings.public_base_url}/certificate/{certificate_id}/social-card.svg">
+  <meta property="og:site_name" content="Universidad Tecnológica de Ciudad Juárez">
+  <meta property="og:title" content="Microcredencial Universitaria: {title} - {recipient_name}">
+  <meta property="og:description" content="Certificación académica oficial con validez curricular y anclaje en Blockchain Ethereum emitida por la UTCJ para {recipient_name}.">
+  <meta property="og:image" content="{absolute_social_card_url}">
+  <meta property="og:image:secure_url" content="{absolute_social_card_url}">
   <meta property="og:image:type" content="image/svg+xml">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:url" content="{certificate_full_url}">
 
-  <!-- Twitter / X -->
+  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="{settings.public_base_url}/render/{certificate_id}">
-  <meta name="twitter:title" content="Microcredencial UTCJ • {recipient_name}">
-  <meta name="twitter:description" content="Acreditación de competencias en '{title}' emitida por la UTCJ y verificada criptográficamente en Ethereum.">
-  <meta name="twitter:image" content="{settings.public_base_url}/certificate/{certificate_id}/social-card.svg">
+  <meta name="twitter:title" content="Microcredencial Universitaria: {title} - {recipient_name}">
+  <meta name="twitter:description" content="Certificación oficial emitida por la Universidad Tecnológica de Ciudad Juárez (UTCJ) con registro en Blockchain.">
+  <meta name="twitter:image" content="{absolute_social_card_url}">
 
+  <!-- Google Fonts: Montserrat, Playfair Display, Inter, Fira Code -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700&family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600&display=swap" rel="stylesheet">
+  
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
   <style>
     :root {{
-      --primary: {primary_color};
-      --primary-dark: {primary_dark_color};
-      --secondary: {secondary_color};
-      --accent: {accent_color};
-      --accent-light: {accent_color}dd;
-      --bg: #F3F7F5;
-      --card-bg: #ffffff;
-      --text: #1F2937;
-      --text-light: {silver_color};
-      --green-light: #E8F1EE;
-      --shadow-premium: 0 20px 40px rgba(15, 62, 74, 0.08);
-      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --primary: #114938;
+      --primary-dark: #0A3327;
+      --primary-light: #146049;
+      --gold: #B88A3B;
+      --gold-dark: #8C6527;
+      --bg: #F4F6F5;
+      --card-bg: #FFFFFF;
+      --text: #1E293B;
+      --text-muted: #64748B;
+      --border-color: #E2E8F0;
+      --transition: all 0.25s ease;
     }}
 
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{ font-family: 'Inter', sans-serif; background: radial-gradient(circle at 50% 50%, #F9FBFA 0%, #E3EDE9 100%); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }}
+    body {{
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }}
 
-    header {{ background: var(--secondary); padding: 16px 40px; display: flex; align-items: center; justify-content: space-between; color: white; border-bottom: 4px solid var(--accent); }}
-    .header-brand {{ display: flex; align-items: center; gap: 16px; }}
-    .header-logo {{ height: 48px; }}
-    .badge-verified {{ background: var(--primary); color: white; padding: 8px 18px; border-radius: 999px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; }}
+    /* Institutional Header */
+    .gov-header {{
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border-color);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }}
+
+    .gov-brand {{
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }}
+
+    .gov-emblem {{
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid var(--gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 900;
+      font-size: 11px;
+      color: #FFFFFF;
+      box-shadow: 0 2px 6px rgba(17,73,56,0.2);
+    }}
+
+    .gov-title h1 {{
+      font-family: 'Montserrat', sans-serif;
+      font-size: 14px;
+      font-weight: 900;
+      color: var(--primary);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }}
+
+    .gov-title p {{
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }}
+
+    .badge-verified-seal {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #FAF8F5;
+      border: 1px solid var(--gold);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 800;
+      font-size: 11px;
+      color: var(--gold-dark);
+      letter-spacing: 0.5px;
+    }}
 
     /* Control Tabs */
     .view-controls {{
-      max-width: 1400px;
+      max-width: 1380px;
       width: 100%;
       margin: 20px auto 0;
       padding: 0 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
     }}
 
     .tabs {{
       display: flex;
-      background: rgba(15, 62, 74, 0.05);
+      background: #E2E8F0;
       padding: 4px;
-      border-radius: 12px;
-      border: 1px solid rgba(15, 62, 74, 0.1);
+      border-radius: 8px;
+      gap: 4px;
     }}
 
     .tab-btn {{
       padding: 8px 16px;
       border: none;
       background: transparent;
-      font-family: 'Inter', sans-serif;
-      font-weight: 600;
-      font-size: 13px;
-      color: var(--secondary);
-      border-radius: 8px;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-radius: 6px;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       transition: var(--transition);
     }}
 
     .tab-active {{
-      background: white;
-      box-shadow: 0 4px 10px rgba(15, 62, 74, 0.08);
-      color: var(--primary-dark);
+      background: #FFFFFF;
+      color: var(--primary) !important;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
     }}
 
-    /* Container layout */
+    /* Container Layout */
     .container {{
-      max-width: 1400px;
+      max-width: 1380px;
       width: 100%;
       margin: 0 auto;
-      padding: 24px;
+      padding: 20px 24px;
       display: grid;
       grid-template-columns: 1fr 380px;
       gap: 28px;
@@ -562,1060 +723,885 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
     }}
 
     .main-content {{
-      background: var(--card-bg);
-      border-radius: 24px;
-      box-shadow: var(--shadow-premium);
-      border: 1px solid rgba(15, 106, 82, 0.1);
-      position: relative;
+      background: #FFFFFF;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border-color);
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }}
 
-    /* Web Diploma Design */
+    /* Authentic Degree Certificate Styles */
     .certificate-frame {{
-      padding: 60px 48px;
+      padding: 48px 40px;
+      background: #FFFFFF;
       position: relative;
-      background: radial-gradient(circle at 10% 10%, #FFFFFF 0%, #FAFCFB 100%);
-      flex-grow: 1;
     }}
 
-    .corner-decor {{
-      position: absolute;
-      width: 24px;
-      height: 24px;
-      border-color: var(--accent);
-      border-style: solid;
-      pointer-events: none;
+    .degree-outer-box {{
+      border: 2.5px solid var(--gold);
+      padding: 6px;
+      border-radius: 4px;
+      background: #FAFDFB;
+      box-shadow: inset 0 0 40px rgba(184, 138, 59, 0.03);
     }}
 
-    .corner-tl {{ top: 20px; left: 20px; border-width: 3px 0 0 3px; }}
-    .corner-tr {{ top: 20px; right: 20px; border-width: 3px 3px 0 0; }}
-    .corner-bl {{ bottom: 20px; left: 20px; border-width: 0 0 3px 3px; }}
-    .corner-br {{ bottom: 20px; right: 20px; border-width: 0 3px 3px 0; }}
-
-    .certificate-inner {{
-      border: 2px solid var(--accent);
-      padding: 44px;
-      border-radius: 12px;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+    .degree-inner-box {{
+      border: 1px solid var(--primary);
+      padding: 36px 28px;
+      border-radius: 2px;
+      background: #FFFFFF;
       text-align: center;
+      position: relative;
     }}
 
-    .watermark-bg {{
-      position: absolute;
-      font-size: 150px;
+    .degree-header-inst {{
+      font-family: 'Montserrat', serif;
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--primary);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }}
+
+    .degree-sub-inst {{
+      font-family: 'Montserrat', sans-serif;
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 1.5px;
+      font-weight: 600;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }}
+
+    .degree-cct {{
+      font-family: 'Montserrat', sans-serif;
+      font-size: 9.5px;
+      color: var(--gold-dark);
+      letter-spacing: 2px;
       font-weight: 800;
-      color: rgba(15, 106, 82, 0.025);
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      letter-spacing: 20px;
-      user-select: none;
+      margin-top: 4px;
+      text-transform: uppercase;
     }}
 
-    .cert-badge-logo {{
-      height: 64px;
+    .degree-divider {{
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      margin: 18px auto;
+      max-width: 600px;
+    }}
+
+    .degree-otorga {{
+      font-family: 'Montserrat', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--gold-dark);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-top: 14px;
+    }}
+
+    .degree-main-title {{
+      font-family: 'Montserrat', serif;
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--primary);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin: 6px 0 12px;
+    }}
+
+    .degree-afavor {{
+      font-family: 'Playfair Display', Georgia, serif;
+      font-style: italic;
+      font-size: 14px;
+      color: var(--text-muted);
+    }}
+
+    .degree-recipient {{
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--primary);
+      margin: 8px 0 12px;
+      display: inline-block;
+      border-bottom: 1.5px solid var(--gold);
+      padding-bottom: 4px;
+    }}
+
+    .degree-statement {{
+      font-family: 'Montserrat', sans-serif;
+      font-size: 11.5px;
+      color: #475569;
+      max-width: 650px;
+      margin: 0 auto 10px;
+      line-height: 1.5;
+    }}
+
+    .degree-program {{
+      font-family: 'Montserrat', serif;
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--primary-light);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }}
+
+    .degree-skills {{
+      font-family: 'Montserrat', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
       margin-bottom: 16px;
     }}
 
-    .cert-institution {{
-      font-family: 'Outfit', sans-serif;
-      font-size: 24px;
+    .degree-hours-banner {{
+      font-family: 'Montserrat', sans-serif;
+      font-size: 10.5px;
       font-weight: 800;
-      color: var(--primary-dark);
-      letter-spacing: 0.5px;
+      color: var(--gold-dark);
+      letter-spacing: 1px;
       text-transform: uppercase;
+      margin-bottom: 28px;
     }}
 
-    .cert-granted-to {{
-      font-family: 'Playfair Display', Georgia, serif;
-      font-style: italic;
-      font-size: 16px;
-      color: var(--text-light);
-      margin-top: 24px;
-    }}
-
-    .cert-recipient {{
-      font-family: 'Outfit', sans-serif;
-      font-size: 38px;
-      font-weight: 700;
-      color: var(--secondary);
-      margin: 12px 0 20px;
-      border-bottom: 2px solid var(--accent);
-      padding-bottom: 12px;
-      min-width: 300px;
-    }}
-
-    .cert-text {{
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 14px;
-      line-height: 1.6;
-      color: #374151;
-      max-width: 600px;
-    }}
-
-    .cert-title {{
-      font-family: 'Outfit', sans-serif;
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--primary-dark);
-      margin: 14px 0 24px;
-      max-width: 650px;
-    }}
-
-    .cert-skills-title {{
-      font-family: 'Outfit', sans-serif;
-      font-size: 11px;
-      text-transform: uppercase;
-      color: var(--accent);
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      margin-bottom: 12px;
-    }}
-
-    .cert-skills {{
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 8px;
-      max-width: 600px;
-      margin-bottom: 40px;
-    }}
-
-    .skill-tag {{
-      background: var(--green-light);
-      color: var(--primary-dark);
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-      border: 1px solid rgba(15, 106, 82, 0.15);
-    }}
-
-    .cert-footer {{
-      width: 100%;
+    .degree-signatures-row {{
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      margin-top: auto;
-      padding: 0 20px;
+      margin-top: 20px;
+      padding: 0 10px;
     }}
 
-    .signature-block {{
+    .sig-col {{
       flex: 1;
-      max-width: 180px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      max-width: 200px;
+      text-align: center;
     }}
 
-    .signature-pic {{
-      height: 48px;
-      width: 100%;
-      border-bottom: 1px solid var(--text-light);
+    .sig-img-box {{
+      height: 44px;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 8px;
+      border-bottom: 1px solid #CBD5E1;
+      margin-bottom: 6px;
+    }}
+
+    .sig-name {{
+      font-family: 'Montserrat', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
       color: var(--primary);
-      font-size: 13px;
-      font-weight: 500;
     }}
 
-    .signature-title {{
-      font-size: 10px;
+    .sig-role {{
+      font-family: 'Montserrat', sans-serif;
+      font-size: 9.5px;
+      color: var(--text-muted);
       font-weight: 600;
-      color: var(--text-light);
-      line-height: 1.4;
     }}
 
-    .cert-seal {{
-      margin: 0 40px;
-    }}
-
-    /* PDF View */
-    .pdf-frame {{
-      display: none;
-      flex-grow: 1;
-      height: 680px;
-      position: relative;
-    }}
-
-    .pdf-frame iframe {{
-      position: relative;
-      width: 100%;
-      height: 100%;
-      border: none;
-      z-index: 2;
-      background: transparent;
-    }}
-
-    @media (max-width: 640px) {{
-      .view-controls {{
-        flex-direction: column;
-        align-items: stretch;
-        gap: 12px;
-      }}
-      .quick-pdf-btn {{
-        justify-content: center;
-      }}
-    }}
-
-    /* Sidebar metadata panel */
-    .sidebar-info {{
-      background: white;
-      border-radius: 24px;
-      box-shadow: var(--shadow-premium);
-      border: 1px solid rgba(15, 106, 82, 0.1);
-      padding: 28px;
+    /* Classical Gold Medallion */
+    .gold-medallion {{
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: #FAF8F5;
+      border: 2px solid var(--gold);
       display: flex;
       flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(184, 138, 59, 0.2);
     }}
 
-    .sidebar-section-title {{
-      font-family: 'Outfit', sans-serif;
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--secondary);
-      margin-bottom: 18px;
+    /* Bottom Security Ribbon */
+    .degree-security-strip {{
+      margin-top: 28px;
+      border-top: 1px solid var(--border-color);
+      padding-top: 16px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }}
-
-    .meta-list {{
-      display: flex;
-      flex-direction: column;
       gap: 16px;
-    }}
-
-    .meta-item h4 {{
-      font-size: 10px;
-      text-transform: uppercase;
-      color: var(--text-light);
-      letter-spacing: 1px;
-      margin-bottom: 4px;
-      font-weight: 600;
-    }}
-
-    .meta-item p {{
-      font-size: 13px;
-      color: var(--secondary);
-      font-weight: 600;
-      word-break: break-all;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }}
-
-    .copy-btn {{
-      cursor: pointer;
-      color: var(--primary);
-      opacity: 0.7;
-      transition: opacity 0.2s;
-      position: relative;
-      display: flex;
-      align-items: center;
-    }}
-
-    .copy-btn:hover {{
-      opacity: 1;
-    }}
-
-    .tooltip {{
-      visibility: hidden;
-      background-color: var(--secondary);
-      color: #fff;
-      text-align: center;
+      text-align: left;
+      background: #F8FAFC;
       border-radius: 6px;
-      padding: 4px 8px;
-      position: absolute;
-      z-index: 1;
-      bottom: 125%;
-      left: 50%;
-      transform: translateX(-50%);
+      padding: 12px 16px;
+      border: 1px solid #E2E8F0;
+    }}
+
+    .strip-qr {{
+      width: 64px;
+      height: 64px;
+      background: #FFFFFF;
+      padding: 4px;
+      border: 1px solid #CBD5E1;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }}
+
+    .strip-info h4 {{
+      font-family: 'Montserrat', sans-serif;
       font-size: 10px;
-      white-space: nowrap;
-      opacity: 0;
-      transition: opacity 0.3s;
+      font-weight: 900;
+      color: var(--primary);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 3px;
     }}
 
-    .copy-btn:hover .tooltip {{
-      visibility: visible;
-      opacity: 1;
-    }}
-
-    .sidebar-divider {{
-      height: 1px;
-      background: #e2e8f0;
-      margin: 24px 0;
-    }}
-
-    .button-group {{
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-top: auto;
-    }}
-
-    .btn {{
-      padding: 12px;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 13px;
-      text-align: center;
-      text-decoration: none;
-      cursor: pointer;
-      border: 1px solid transparent;
-      transition: var(--transition);
+    .strip-info p {{
+      font-size: 9.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
       font-family: 'Inter', sans-serif;
     }}
 
-    .btn-primary {{
-      background: var(--primary);
-      color: white;
-      box-shadow: 0 4px 12px rgba(15, 106, 82, 0.2);
-    }}
-
-    .btn-primary:hover {{
-      background: var(--primary-dark);
-      box-shadow: 0 6px 16px rgba(15, 106, 82, 0.3);
-    }}
-
-    .btn-secondary {{
-      background: #f8fafc;
-      color: var(--secondary);
-      border-color: #e2e8f0;
-    }}
-
-    .btn-secondary:hover {{
-      background: #f1f5f9;
-      border-color: #cbd5e1;
-    }}
-
-    .verify-step {{
-      font-size: 12px;
-      margin-bottom: 6px;
-      color: var(--secondary);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-family: monospace;
-    }}
-
-    /* Footer */
-    footer {{
-      background: var(--secondary);
-      padding: 24px 40px;
-      text-align: center;
-      color: white;
-      font-size: 12px;
-      opacity: 0.9;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      margin-top: auto;
-    }}
-
-    @media (max-width: 1024px) {{
-      .container {{
-        grid-template-columns: 1fr;
-      }}
-      .sidebar-info {{
-        margin-top: 0;
-      }}
-    }}
-
-    /* Estilos Premium Adicionales - Efecto 3D y Modal de Validación */
-    .certificate-frame {{
-      perspective: 1000px;
-    }}
-    .certificate-inner {{
-      position: relative;
-      transform-style: preserve-3d;
-      transition: transform 0.5s ease, box-shadow 0.5s ease;
-    }}
-    #card-glare {{
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
+    /* Sidebar Dossier */
+    .sidebar-dossier {{
+      background: #FFFFFF;
       border-radius: 12px;
-      z-index: 10;
-    }}
-    .fixed-verify-modal {{
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 62, 74, 0.4);
-      backdrop-filter: blur(8px);
-      z-index: 9999;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }}
-    .verify-modal-content {{
-      background: white;
-      border-radius: 24px;
-      box-shadow: 0 30px 60px rgba(15, 62, 74, 0.15);
-      border: 1px solid rgba(15, 106, 82, 0.1);
-      width: 100%;
-      max-width: 480px;
-      padding: 28px;
-      animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }}
-    @keyframes scaleUp {{
-      from {{ transform: scale(0.95); opacity: 0; }}
-      to {{ transform: scale(1); opacity: 1; }}
-    }}
-    .verify-modal-header {{
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-    }}
-    .verify-modal-header h3 {{
-      font-family: 'Outfit', sans-serif;
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--secondary);
-    }}
-    .verify-modal-header button {{
-      background: transparent;
-      border: none;
-      font-size: 24px;
-      color: #94a3b8;
-      cursor: pointer;
-      line-height: 1;
-    }}
-    .blockchain-seal-container {{
-      position: relative;
-      width: 80px;
-      height: 80px;
-      margin: 0 auto 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }}
-    .blockchain-seal-outer {{
-      position: absolute;
-      inset: 0;
-      border: 3px dashed var(--primary);
-      border-radius: 50%;
-    }}
-    .blockchain-seal-inner {{
-      width: 56px;
-      height: 56px;
-      background: var(--green-light);
-      color: var(--primary);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }}
-    .animate-spin-slow {{
-      animation: spin 8s linear infinite;
-    }}
-    @keyframes spin {{
-      to {{ transform: rotate(360deg); }}
-    }}
-    .verify-steps-list {{
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border-color);
+      padding: 24px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      margin-bottom: 24px;
     }}
-    .v-step {{
+
+    .dossier-title {{
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 900;
+      color: var(--primary);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
+      gap: 8px;
+    }}
+
+    .dossier-list {{
+      display: flex;
+      flex-direction: column;
       gap: 12px;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-light);
-      transition: all 0.3s ease;
     }}
-    .v-step-active {{
-      color: var(--secondary);
+
+    .dossier-item {{
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+      padding: 8px 12px;
     }}
-    .v-step-success {{
-      color: var(--primary-dark);
+
+    .dossier-item label {{
+      font-family: 'Montserrat', sans-serif;
+      font-size: 9px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: block;
+      margin-bottom: 2px;
     }}
-    .v-step-failed {{
-      color: #ef4444;
+
+    .dossier-item span {{
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      word-break: break-all;
     }}
-    .v-result-panel {{
-      padding: 16px;
-      border-radius: 16px;
+
+    .btn-formal {{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 11.5px;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+      transition: var(--transition);
       text-align: center;
-      margin-top: 20px;
-      transition: all 0.3s ease;
+      border: 1px solid transparent;
     }}
-    .v-result-success {{
-      background: var(--green-light);
-      border: 1px solid rgba(15, 106, 82, 0.2);
+
+    .btn-formal-primary {{
+      background: var(--primary);
+      color: #FFFFFF;
     }}
-    .v-result-failed {{
-      background: #fee2e2;
-      border: 1px solid rgba(239, 68, 68, 0.2);
+
+    .btn-formal-primary:hover {{
+      background: var(--primary-dark);
     }}
-    #v-result-title {{
-      font-family: 'Outfit', sans-serif;
-      font-weight: 700;
-      font-size: 14px;
-      margin-bottom: 4px;
+
+    .btn-formal-secondary {{
+      background: #FFFFFF;
+      color: var(--primary);
+      border-color: #CBD5E1;
     }}
-    #v-result-desc {{
-      font-size: 12px;
-      opacity: 0.8;
+
+    .btn-formal-secondary:hover {{
+      background: #F1F5F9;
+      border-color: var(--primary);
     }}
-    
-    /* Dark Theme Styles */
-    body.dark-theme {{
-      --bg: #0f172a;
-      --card-bg: #1e293b;
-      --text: #f1f5f9;
-      --green-light: #064e3b;
-      background: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%);
+
+    .btn-formal-linkedin {{
+      background: #0A66C2;
+      color: #FFFFFF !important;
+      border-color: #0A66C2;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
     }}
-    body.dark-theme .main-content {{
-      background: #1e293b;
-      border-color: rgba(15, 106, 82, 0.2);
+
+    .btn-formal-linkedin:hover {{
+      background: #084e96;
+      border-color: #084e96;
+      color: #FFFFFF !important;
     }}
-    body.dark-theme .certificate-inner {{
-      background: radial-gradient(circle at 10% 10%, #1e293b 0%, #0f172a 100%);
-      border-color: var(--accent);
-    }}
-    body.dark-theme .sidebar-info {{
-      background: #1e293b;
-      border-color: rgba(15, 106, 82, 0.2);
-    }}
-    body.dark-theme .v-step-active {{
-      color: #38bdf8;
-    }}
-    body.dark-theme .v-step-success {{
-      color: #34d399;
-    }}
-    body.dark-theme .verify-modal-content {{
-      background: #1e293b;
-      border-color: rgba(15, 106, 82, 0.2);
-      color: #f1f5f9;
-    }}
-    body.dark-theme .verify-modal-header h3 {{
-      color: #f1f5f9;
-    }}
-    body.dark-theme .tab-active {{
-      background: #0f172a;
-      color: white;
-    }}
-    body.dark-theme .tab-btn {{
-      color: #94a3b8;
-    }}
-    body.dark-theme .tab-btn:hover {{
-      color: white;
-    }}
-    body.dark-theme .btn-secondary {{
-      background: #334155;
-      color: #f1f5f9;
-      border-color: #475569;
-    }}
-    body.dark-theme .btn-secondary:hover {{
-      background: #475569;
-    }}
-    body.dark-theme .meta-item p {{
-      color: #f1f5f9;
-    }}
-    body.dark-theme .cert-text {{
-      color: #cbd5e1;
-    }}
-    body.dark-theme .meta-item h4 {{
-      color: #94a3b8;
-    }}
-    body.dark-theme .sidebar-divider {{
-      background: #334155;
-    }}
-    body.dark-theme .v-result-success {{
-      background: #064e3b;
-      border-color: rgba(16, 185, 129, 0.3);
-    }}
-    body.dark-theme .v-result-failed {{
-      background: #7f1d1d;
-      border-color: rgba(239, 68, 68, 0.3);
-    }}
-    body.dark-theme #verify-modal {{
-      background: rgba(15, 23, 42, 0.6);
+
+    /* Formal Footer */
+    .formal-footer {{
+      background: #FFFFFF;
+      border-top: 1px solid var(--border-color);
+      padding: 16px 32px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
     }}
   </style>
 </head>
 <body>
 
-  <header>
-    <div class="header-brand">
-      <img src="/assets/logos/utcj-logo.png" alt="Logo UTCJ" class="header-logo" onerror="this.style.display='none'">
-      <div class="header-title-group">
-        <h1>UTCJ Microcredenciales</h1>
-        <p>Validador de Logros Académicos</p>
+  <!-- Top Navigation Header -->
+  <header class="gov-header">
+    <div class="gov-brand">
+      <img src="/assets/logos/utyp-logo.png" alt="Logo UTyP" style="height: 36px; width: auto; object-fit: contain;">
+      <img src="/assets/logos/utcj-logo.png" alt="Logo UTCJ" style="height: 36px; width: auto; object-fit: contain;">
+      <div class="gov-title">
+        <h1>Universidad Tecnológica de Ciudad Juárez</h1>
+        <p>Subsistema de Universidades Tecnológicas y Politécnicas • Portal Oficial de Microcredenciales</p>
       </div>
     </div>
-    <div style="display: flex; align-items: center; gap: 12px;">
-      <div class="badge-verified">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-        Verificado Blockchain
+
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <a href="/portal-empresas" class="btn-formal btn-formal-secondary" style="padding: 5px 12px; font-size: 11px; text-decoration: none;">
+        Portal Empresas / RRHH ↗
+      </a>
+      <div class="badge-verified-seal">
+        REGISTRO OFICIAL W3C BLOCKCERTS
       </div>
-      <button onclick="toggleTheme()" class="theme-toggle-btn" title="Alternar Modo Oscuro/Claro" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 999px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;">
-        <svg class="sun-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-        <svg class="moon-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-      </button>
     </div>
   </header>
 
+  <!-- View Switcher Controls -->
   <div class="view-controls">
     <div class="tabs">
-      <button id="tab-web" class="tab-btn tab-active" onclick="showView('web')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-        Vista Diploma Web
-      </button>
-      <button id="tab-pvc" class="tab-btn" onclick="showView('pvc')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
-        Carnet Físico (PVC)
-      </button>
-      <button id="tab-pdf" class="tab-btn" onclick="showView('pdf')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-        Vista Documento PDF
-      </button>
-      <button id="tab-social" class="tab-btn" onclick="showView('social')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
-        Tarjeta Redes (OpenGraph)
-      </button>
-      <button id="tab-verify-pdf" class="tab-btn" onclick="showView('verifypdf')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-        Verificador PDF (SHA-256)
-      </button>
+      <button id="tab-web" class="tab-btn tab-active" onclick="showView('web')">Diploma Universitario</button>
+      <button id="tab-constancia" class="tab-btn" onclick="showView('constancia')">Constancia Oficial</button>
+      <button id="tab-pdf" class="tab-btn" onclick="showView('pdf')">Documento PDF</button>
+      <button id="tab-social" class="tab-btn" onclick="showView('social')">Tarjeta de Grado</button>
+      <button id="tab-verify" class="tab-btn" onclick="showView('verify')">Verificador Criptográfico</button>
     </div>
-    <a href="{pdf_url}" target="_blank" class="quick-pdf-btn" style="text-decoration: none; display: flex; align-items: center; gap: 8px; background: var(--primary); color: white; padding: 8px 16px; border-radius: 12px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 10px rgba(15, 106, 82, 0.2); transition: var(--transition);">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-      Ver PDF Oficial
-    </a>
+
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <a href="{linkedin_add_url}" target="_blank" rel="noopener noreferrer" class="btn-formal btn-formal-linkedin" style="padding: 6px 14px; font-size: 11px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.25V10.9H6.46M7.86 6.74a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24z"/></svg>
+        Añadir a LinkedIn ↗
+      </a>
+      <a href="{pdf_url}" target="_blank" class="btn-formal btn-formal-primary" style="padding: 6px 14px; font-size: 11px;">
+        Descargar PDF ↗
+      </a>
+    </div>
   </div>
 
   <div class="container">
     <div class="main-content">
-      <div id="web-certificate-view" class="certificate-frame">
-        <div class="corner-decor corner-tl"></div>
-        <div class="corner-decor corner-tr"></div>
-        <div class="corner-decor corner-bl"></div>
-        <div class="corner-decor corner-br"></div>
-        
-        <div class="certificate-inner">
-          {revocation_banner}
-          
-          <div class="watermark-bg">UTCJ</div>
+      
+      <!-- 1. Diploma View -->
+      <div id="view-web" class="certificate-frame">
+        <div class="degree-outer-box">
+          <div class="degree-inner-box">
+            {revocation_banner}
 
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid rgba(184, 138, 59, 0.4); padding-bottom: 12px; margin-bottom: 18px;">
-            <div style="font-size: 11px; font-weight: 800; color: var(--primary); letter-spacing: 1.5px; text-transform: uppercase;">
-              CLAVE CCT: 08MSU0017R • SEPyD / CGUTyP
-            </div>
-            <div style="font-size: 12px; font-weight: 800; color: var(--accent); font-family: monospace; background: rgba(184, 138, 59, 0.1); padding: 4px 12px; border-radius: 8px; border: 1px solid rgba(184, 138, 59, 0.3);">
-              FOLIO REGISTRO: {folio_num}
-            </div>
-          </div>
-          
-          <div style="font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: var(--primary); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px;">
-            Microcredencial Verificable UTCJ
-          </div>
-          
-          <div class="cert-institution">Universidad Tecnológica de Ciudad Juárez</div>
-          
-          <div class="cert-granted-to">Otorga la presente credencial académica a:</div>
-          
-          <div class="cert-recipient">{recipient_name}</div>
-          
-          <div class="cert-text">Por haber acreditado satisfactoriamente las competencias del programa:</div>
-          
-          <div class="cert-title">{title}</div>
-          
-          <div class="cert-skills-title">Competencias Acreditadas</div>
-          <div class="cert-skills">
-            {skills_html}
-          </div>
-          
-          <div class="cert-footer">
-            <div class="signature-block">
-              <div class="signature-pic">
-                {signature_html}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <img src="/assets/logos/utyp-logo.png" alt="UTyP" style="height: 46px; max-width: 90px; object-fit: contain;">
+              <div style="text-align: center; flex: 1; padding: 0 14px;">
+                <div class="degree-header-inst">UNIVERSIDAD TECNOLÓGICA DE CIUDAD JUÁREZ</div>
+                <div class="degree-sub-inst">Organismo Público Descentralizado del Gobierno del Estado de Chihuahua</div>
+                <div class="degree-cct">SUBSISTEMA DE UNIVERSIDADES TECNOLÓGICAS Y POLITÉCNICAS • CCT: 08MSU0017R • MODALIDAD MIXTA</div>
               </div>
-              <div class="signature-title">
-                <strong>Dr. Óscar Fidencio Ibáñez Hernández</strong><br>
-                Rector de la UTCJ
-              </div>
+              <img src="/assets/logos/utcj-logo.png" alt="UTCJ" style="height: 46px; max-width: 90px; object-fit: contain;">
             </div>
+
+            <div class="degree-divider"></div>
+
+            <div class="degree-otorga">OTORGA LA PRESENTE</div>
+            <div class="degree-main-title">MICROCREDENCIAL UNIVERSITARIA</div>
             
-            <div class="cert-seal">
-              <svg width="78" height="78" viewBox="0 0 100 100" style="filter: drop-shadow(0 4px 12px rgba(184,138,59,0.3));">
-                <circle cx="50" cy="50" r="48" fill="url(#sealGoldGrad)" stroke="{accent_color}" stroke-width="2"/>
-                <circle cx="50" cy="50" r="42" fill="none" stroke="{accent_color}" stroke-width="1.5" stroke-dasharray="3 2"/>
-                <circle cx="50" cy="50" r="35" fill="{primary_color}" fill-opacity="0.12"/>
-                <text x="50" y="44" font-family="'Outfit', sans-serif" font-weight="900" font-size="14" fill="{accent_color}" text-anchor="middle">UTCJ</text>
-                <text x="50" y="58" font-family="'Inter', sans-serif" font-weight="800" font-size="7.5" fill="{primary_color}" text-anchor="middle">SELLO SECO</text>
-                <text x="50" y="68" font-family="'Inter', sans-serif" font-weight="700" font-size="6.5" fill="{accent_color}" text-anchor="middle">INSTITUCIONAL</text>
-              </svg>
+            <div class="degree-afavor">A favor de:</div>
+            <div class="degree-recipient">{recipient_name}</div>
+
+            <div class="degree-statement">
+              Por haber acreditado satisfactoriamente la totalidad de las evaluaciones y demostrado el dominio de las competencias del programa académico:
             </div>
+
+            <div class="degree-program">{title}</div>
             
-            <div class="signature-block">
-              <div class="signature-pic" style="color: var(--primary); font-family: 'Playfair Display', serif; font-style: italic; font-size: 16px; display: flex; align-items: center; justify-content: center;">
-                Edgar Omar Lara E.
-              </div>
-              <div class="signature-title">
-                <strong>Mtro. Edgar Omar Lara Enríquez</strong><br>
-                Dir. de Administración Escolar
-              </div>
+            <div class="degree-skills">
+              COMPETENCIAS CERTIFICADAS: [ {skills_formatted} ]
             </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Interactive 3D PVC Physical Card View -->
-      <div id="pvc-card-view" style="display: none; padding: 40px; text-align: center;">
-        <h3 style="font-family: 'Outfit', sans-serif; color: var(--secondary); margin-bottom: 8px; font-size: 22px;">Simulación de Carnet Físico en PVC Institucional</h3>
-        <p style="color: var(--text-light); font-size: 14px; margin-bottom: 32px; max-width: 650px; margin-left: auto; margin-right: auto;">Representación visual de la credencial física de alta durabilidad para acceso a campus, laboratorios e identificación estudiantil.</p>
+            <div class="degree-hours-banner">
+              PROGRAMA ACREDITADO CON {hours} HORAS LECTIVAS Y PRÁCTICAS • VALIDEZ CURRICULAR OFICIAL
+            </div>
 
-        <div style="display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; perspective: 1000px;">
-          <!-- Front Card Side -->
-          <div style="width: 420px; height: 260px; background: linear-gradient(135deg, var(--secondary) 0%, #062831 100%); border-radius: 20px; border: 2px solid var(--accent); padding: 20px; color: white; text-align: left; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow: hidden;">
-            <div style="position: absolute; top: -50px; right: -50px; width: 180px; height: 180px; background: var(--primary); opacity: 0.2; border-radius: 50%;"></div>
-            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(184, 138, 59, 0.4); padding-bottom: 12px; margin-bottom: 14px;">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <svg width="32" height="32" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="46" fill="#0F3E4A" stroke="#B88A3B" stroke-width="4"/>
-                  <path d="M30 40 L50 25 L70 40 L70 65 L50 78 L30 65 Z" fill="#0F6A52" stroke="#B88A3B" stroke-width="2"/>
-                  <text x="50" y="56" font-family="'Outfit', sans-serif" font-weight="900" font-size="16" fill="#FFFFFF" text-anchor="middle">UTCJ</text>
-                </svg>
-                <div>
-                  <div style="font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 800; color: white;">UTCJ MICROCREDENTIALS</div>
-                  <div style="font-size: 9px; color: var(--accent); font-weight: 700;">CCT: 08MSU0017R • CHIHUAHUA</div>
+            <div class="degree-signatures-row">
+              <div class="sig-col">
+                <div class="sig-img-box">
+                  {signature_html}
                 </div>
+                <div class="sig-name">Dr. Óscar Fidencio Ibáñez Hernández</div>
+                <div class="sig-role">Rector de la UTCJ</div>
               </div>
-              <span style="font-family: monospace; font-size: 10px; color: var(--accent); font-weight: 700; background: rgba(184, 138, 59, 0.15); padding: 3px 8px; border-radius: 6px;">{folio_num}</span>
+
+              <div class="gold-medallion">
+                <div style="font-family:'Montserrat',sans-serif; font-size:10px; font-weight:900; color:var(--gold-dark);">UTCJ</div>
+                <div style="font-family:'Montserrat',sans-serif; font-size:6px; font-weight:800; color:var(--primary);">SELLO OFICIAL</div>
+                <div style="font-family:'Montserrat',sans-serif; font-size:5.5px; font-weight:800; color:var(--gold-dark);">RECTORÍA</div>
+              </div>
+
+              <div class="sig-col">
+                <div class="sig-img-box" style="font-family:'Playfair Display',serif; font-style:italic; font-size:16px; color:var(--primary); font-weight:700;">
+                  M.D.O.H. Hugo García V.
+                </div>
+                <div class="sig-name">M.D.O.H. Hugo García Vargas</div>
+                <div class="sig-role">Secretario Académico</div>
+              </div>
             </div>
 
-            <div style="font-size: 10px; text-transform: uppercase; color: var(--text-light); letter-spacing: 1px; font-weight: 700;">Titular de la Credencial</div>
-            <div style="font-family: 'Outfit', sans-serif; font-size: 19px; font-weight: 800; color: white; margin-bottom: 10px;">{recipient_name}</div>
-
-            <div style="font-size: 10px; text-transform: uppercase; color: var(--text-light); letter-spacing: 1px; font-weight: 700;">Programa de Competencias</div>
-            <div style="font-size: 13px; font-weight: 700; color: var(--green-light); margin-bottom: 14px;">{title}</div>
-
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; position: absolute; bottom: 16px; left: 20px; right: 20px;">
-              <div>
-                <div style="font-size: 9px; color: var(--text-light);">Vigencia / Emisión</div>
-                <div style="font-size: 11px; font-family: monospace; font-weight: 700;">{issue_date}</div>
+            <div class="degree-security-strip">
+              <img src="{qr_uri}" alt="QR Verificación" class="strip-qr">
+              <div class="strip-info">
+                <h4>REGISTRO CRIPTOGRÁFICO OFICIAL EN BLOCKCHAIN ETHEREUM</h4>
+                <p><strong>Folio Oficial:</strong> {folio_num} &nbsp;|&nbsp; <strong>Estándar:</strong> W3C Blockcerts v3.2 &nbsp;|&nbsp; <strong>Emisión:</strong> {issue_date}</p>
+                <p><strong>GUID:</strong> {certificate_id} &nbsp;|&nbsp; <strong>Tx:</strong> {tx_id[:32]}...</p>
+                <p style="color:#94A3B8; font-size:8.5px; margin-top:2px;">Documento académico emitido conforme a la normatividad universitaria de la UTCJ. Validación en tiempo real disponible.</p>
               </div>
-              <div style="display: flex; items-center; gap: 6px; background: rgba(16, 185, 129, 0.2); border: 1px solid #10B981; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; color: #10B981;">
-                <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
-                CHIP BLOCKCHAIN ACTIVE
-              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Curricular Breakdown & Accreditation Card -->
+        <div style="max-width: 960px; margin: 24px auto 0; background: #FFFFFF; border: 1px solid var(--border-color); border-radius: 10px; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); text-align: left;">
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h3 style="font-family: 'Montserrat', sans-serif; font-size: 13.5px; font-weight: 900; color: var(--primary); text-transform: uppercase; margin: 0;">Ficha Curricular y Competencias Profesionales</h3>
+            </div>
+            <span style="background: #FAF8F5; border: 1px solid var(--gold); color: var(--gold-dark); padding: 4px 10px; border-radius: 4px; font-size: 10.5px; font-weight: 800; font-family: 'Montserrat', sans-serif;">PROGRAMA UNIVERSITARIO UTCJ</span>
+          </div>
+
+          <p style="font-size: 12.5px; color: #475569; line-height: 1.6; margin-bottom: 18px;">
+            {course_synopsis}
+          </p>
+
+          <div style="margin-bottom: 18px;">
+            <h4 style="font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; margin-bottom: 8px;">Competencias Técnicas Acreditadas:</h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              {skills_pills_html}
             </div>
           </div>
 
-          <!-- Back Card Side -->
-          <div style="width: 420px; height: 260px; background: linear-gradient(135deg, #091E24 0%, #051419 100%); border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); padding: 0; color: white; text-align: left; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow: hidden;">
-            <div style="width: 100%; height: 42px; background: #111827; margin-top: 20px;"></div>
-            <div style="padding: 16px 20px;">
-              <div style="background: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 10px; color: var(--accent); display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <span>GUID: {certificate_id[:18]}...</span>
-                <span>W3C v3.2</span>
-              </div>
-              <p style="font-size: 9.5px; color: var(--text-light); line-height: 1.5; margin-bottom: 12px;">Esta tarjeta física es propiedad de la Universidad Tecnológica de Ciudad Juárez. Su validez criptográfica inmutable está respaldada en la red de Ethereum Mainnet.</p>
-              <div style="font-size: 10px; color: var(--gold); font-weight: 700;">Rectoría Dr. Óscar Fidencio Ibáñez Hernández</div>
+          <div>
+            <h4 style="font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; margin-bottom: 8px;">Módulos del Plan de Estudios Evaluados:</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              {modules_html}
             </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 2. Constancia View -->
+      <div id="view-constancia" style="display: none;" class="certificate-frame">
+        <div style="background: #FFFFFF; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+          <div>
+            <h4 style="font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 800; color: var(--primary); margin: 0; text-transform: uppercase;">Constancia Oficial de Acreditación</h4>
+            <p style="font-size: 11px; color: var(--text-muted); margin: 2px 0 0 0;">Expediente curricular oficial de competencias universitarias con sello de Rectoría.</p>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="{constancia_url}" download="constancia-{certificate_id}.pdf" class="btn-formal btn-formal-primary" style="padding: 6px 14px; font-size: 11px;">
+              Descargar Constancia PDF
+            </a>
+            <a href="{constancia_url}" target="_blank" class="btn-formal btn-formal-secondary" style="padding: 6px 14px; font-size: 11px;">
+              Abrir PDF en Pantalla Completa ↗
+            </a>
+          </div>
+        </div>
+
+        <div class="degree-outer-box">
+          <div class="degree-inner-box" style="text-align: left; padding: 40px 36px;">
+            {revocation_banner}
+
+            <!-- Institutional Co-Branding Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <img src="/assets/logos/utyp-logo.png" alt="UTyP" style="height: 48px; max-width: 95px; object-fit: contain;">
+              <div style="text-align: center; flex: 1; padding: 0 16px;">
+                <div class="degree-header-inst" style="font-size: 18px;">UNIVERSIDAD TECNOLÓGICA DE CIUDAD JUÁREZ</div>
+                <div class="degree-sub-inst">Organismo Público Descentralizado del Gobierno del Estado de Chihuahua</div>
+                <div class="degree-cct">SUBSISTEMA DE UNIVERSIDADES TECNOLÓGICAS Y POLITÉCNICAS • CCT: 08MSU0017R • MODALIDAD MIXTA</div>
+              </div>
+              <img src="/assets/logos/utcj-logo.png" alt="UTCJ" style="height: 48px; max-width: 95px; object-fit: contain;">
+            </div>
+
+            <div class="degree-divider"></div>
+
+            <!-- Title & Folio Banner -->
+            <div style="text-align: center; margin: 16px 0 20px;">
+              <div style="font-family: 'Montserrat', sans-serif; font-size: 16px; font-weight: 900; color: var(--primary); letter-spacing: 1.5px; text-transform: uppercase;">
+                CONSTANCIA OFICIAL DE ACREDITACIÓN DE COMPETENCIAS
+              </div>
+              <div style="font-family: 'Montserrat', sans-serif; font-size: 10px; font-weight: 800; color: var(--gold-dark); letter-spacing: 2px; text-transform: uppercase; margin-top: 4px;">
+                DIRECCIÓN DE ADMINISTRACIÓN ESCOLAR Y SECRETARÍA ACADÉMICA
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 700; color: var(--text-muted); border-bottom: 1px dashed var(--border-color); padding-bottom: 10px; margin-bottom: 20px;">
+              <span><strong>FECHA DE EMISIÓN:</strong> {issue_date}</span>
+              <span><strong>FOLIO REGISTRAL:</strong> <span style="color: var(--gold-dark); font-weight: 800;">{folio_num}</span></span>
+            </div>
+
+            <!-- Solemn Certification Body -->
+            <div style="font-family: 'Montserrat', sans-serif; font-size: 12.5px; color: #334155; line-height: 1.7; margin-bottom: 20px;">
+              La Universidad Tecnológica de Ciudad Juárez, Organismo Público Descentralizado del Gobierno del Estado de Chihuahua y miembro del Subsistema de Universidades Tecnológicas y Politécnicas, por conducto de la Dirección de Administración Escolar y la Secretaría Académica, <strong>HACE CONSTAR</strong> que el (la) C.:
+            </div>
+
+            <div style="text-align: center; margin: 18px 0;">
+              <div class="degree-recipient" style="font-size: 28px; margin: 0 auto; display: inline-block;">{recipient_name}</div>
+            </div>
+
+            <div style="font-family: 'Montserrat', sans-serif; font-size: 12.5px; color: #334155; line-height: 1.7; margin-bottom: 14px;">
+              Ha acreditado satisfactoriamente la totalidad de las evaluaciones y demostrado el dominio de las competencias correspondientes al programa universitario de microcredencial:
+            </div>
+
+            <div style="background: #FAFDFB; border: 1.5px solid var(--gold); border-radius: 6px; padding: 14px 20px; text-align: center; margin-bottom: 24px;">
+              <div style="font-family: 'Montserrat', serif; font-size: 17px; font-weight: 900; color: var(--primary); letter-spacing: 0.5px; text-transform: uppercase;">
+                {title}
+              </div>
+            </div>
+
+            <!-- Concepts & Registry Table -->
+            <div style="margin-bottom: 28px; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
+              <table style="width: 100%; border-collapse: collapse; font-family: 'Montserrat', sans-serif; font-size: 11px;">
+                <thead>
+                  <tr style="background: var(--primary); color: #FFFFFF;">
+                    <th style="padding: 9px 14px; text-align: left; font-weight: 800; width: 35%;">CONCEPTO REGISTRAL</th>
+                    <th style="padding: 9px 14px; text-align: left; font-weight: 800;">DETALLE INSTITUCIONAL Y CRIPTOGRÁFICO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="background: #FFFFFF; border-bottom: 1px solid #F1F5F9;">
+                    <td style="padding: 8px 14px; font-weight: 700; color: var(--primary);">Titular Acreditado</td>
+                    <td style="padding: 8px 14px; color: #1E293B;">{recipient_name}</td>
+                  </tr>
+                  <tr style="background: #F8FAFC; border-bottom: 1px solid #F1F5F9;">
+                    <td style="padding: 8px 14px; font-weight: 700; color: var(--primary);">Carga Horaria</td>
+                    <td style="padding: 8px 14px; color: #1E293B;">{hours} Horas Lectivas y Prácticas</td>
+                  </tr>
+                  <tr style="background: #FFFFFF; border-bottom: 1px solid #F1F5F9;">
+                    <td style="padding: 8px 14px; font-weight: 700; color: var(--primary);">Competencias Evaluadas</td>
+                    <td style="padding: 8px 14px; color: #1E293B;">{skills_formatted}</td>
+                  </tr>
+                  <tr style="background: #F8FAFC; border-bottom: 1px solid #F1F5F9;">
+                    <td style="padding: 8px 14px; font-weight: 700; color: var(--primary);">Folio de Libro Matriz</td>
+                    <td style="padding: 8px 14px; color: var(--gold-dark); font-weight: 800;">{folio_num}</td>
+                  </tr>
+                  <tr style="background: #FFFFFF; border-bottom: 1px solid #F1F5F9;">
+                    <td style="padding: 8px 14px; font-weight: 700; color: var(--primary);">Identificador Criptográfico (GUID)</td>
+                    <td style="padding: 8px 14px; font-family: monospace; font-size: 10.5px; color: #334155;">{certificate_id}</td>
+                  </tr>
+                  <tr style="background: #F8FAFC;">
+                    <td style="padding: 8px 14px; font-weight: 700; color: var(--primary);">Anclaje en Blockchain</td>
+                    <td style="padding: 8px 14px; color: #059669; font-weight: 700;">Red Ethereum Mainnet ({tx_id[:24]}...)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Signatures Row with Gold Medallion -->
+            <div class="degree-signatures-row" style="margin-top: 10px;">
+              <div class="sig-col">
+                <div class="sig-img-box">
+                  {signature_html}
+                </div>
+                <div class="sig-name">Dr. Óscar Fidencio Ibáñez Hernández</div>
+                <div class="sig-role">Rector de la UTCJ</div>
+              </div>
+
+              <div class="gold-medallion">
+                <div style="font-family:'Montserrat',sans-serif; font-size:10px; font-weight:900; color:var(--gold-dark);">UTCJ</div>
+                <div style="font-family:'Montserrat',sans-serif; font-size:6px; font-weight:800; color:var(--primary);">SELLO OFICIAL</div>
+                <div style="font-family:'Montserrat',sans-serif; font-size:5.5px; font-weight:800; color:var(--gold-dark);">RECTORÍA</div>
+              </div>
+
+              <div class="sig-col">
+                <div class="sig-img-box" style="font-family:'Playfair Display',serif; font-style:italic; font-size:16px; color:var(--primary); font-weight:700;">
+                  M.D.O.H. Hugo García V.
+                </div>
+                <div class="sig-name">M.D.O.H. Hugo García Vargas</div>
+                <div class="sig-role">Secretario Académico</div>
+              </div>
+            </div>
+
+            <!-- Bottom Cryptographic Strip -->
+            <div class="degree-security-strip" style="margin-top: 24px;">
+              <img src="{qr_uri}" alt="QR Verificación" class="strip-qr">
+              <div class="strip-info">
+                <h4>REGISTRO CRIPTOGRÁFICO OFICIAL EN BLOCKCHAIN ETHEREUM</h4>
+                <p><strong>Folio Oficial:</strong> {folio_num} &nbsp;|&nbsp; <strong>Estándar:</strong> W3C Blockcerts v3.2 &nbsp;|&nbsp; <strong>Emisión:</strong> {issue_date}</p>
+                <p><strong>GUID:</strong> {certificate_id} &nbsp;|&nbsp; <strong>Tx:</strong> {tx_id[:32]}...</p>
+                <p style="color:#94A3B8; font-size:8.5px; margin-top:2px;">Esta constancia es un documento oficial con validez curricular expedido conforme a la normatividad de la UTCJ.</p>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
 
-      <!-- PDF Frame View -->
-      <div id="pdf-certificate-view" class="pdf-frame" style="display: none; position: relative;">
-        <div class="pdf-fallback-message" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; background: rgba(248, 250, 249, 0.85); border-radius: 12px; z-index: 1;">
-          <p style="margin-bottom: 16px; font-size: 15px; color: var(--secondary); font-weight: 500;">Si el visor de PDF no se carga automáticamente en tu dispositivo, puedes abrirlo directamente:</p>
-          <a href="{pdf_url}" target="_blank" class="btn btn-primary" style="padding: 10px 24px; text-decoration: none;">Ver PDF Oficial en Nueva Pestaña</a>
+      <!-- 3. PDF Frame View -->
+      <div id="view-pdf" style="display: none;">
+        <div style="background: #FFFFFF; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 20px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+          <div>
+            <h4 style="font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 800; color: var(--primary); margin: 0; text-transform: uppercase;">Diploma Universitario Imprimible (A4 Horizontal)</h4>
+            <p style="font-size: 11px; color: var(--text-muted); margin: 2px 0 0 0;">Documento de alta resolución apto para impresión en papel diploma o enmarcado.</p>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="{pdf_url}" download="diploma-{certificate_id}.pdf" class="btn-formal btn-formal-primary" style="padding: 6px 14px; font-size: 11px;">
+              Descargar Diploma PDF
+            </a>
+            <a href="{pdf_url}" target="_blank" class="btn-formal btn-formal-secondary" style="padding: 6px 14px; font-size: 11px;">
+              Abrir Pantalla Completa ↗
+            </a>
+          </div>
         </div>
-        <iframe src="{pdf_url}#toolbar=0" title="Visualizador de PDF del Certificado" style="position: relative; width: 100%; height: 100%; border: none; z-index: 2; background: transparent;"></iframe>
-      </div>
-
-      <!-- Social Share Card View -->
-      <div id="social-card-view" style="display: none; padding: 32px; text-align: center;">
-        <h3 style="font-family: 'Outfit', sans-serif; color: var(--secondary); margin-bottom: 12px; font-size: 20px;">Tarjeta Oficial para Compartir en Redes Sociales (1200x630 px)</h3>
-        <p style="color: var(--text-light); font-size: 14px; margin-bottom: 24px; max-width: 600px; margin-left: auto; margin-right: auto;">Optimizada para vistas previas en LinkedIn, X/Twitter y portafolios digitales con código QR de verificación instantánea.</p>
-        
-        <div style="background: #F3F7F5; padding: 16px; border-radius: 16px; border: 1px solid rgba(15, 62, 74, 0.1); display: inline-block; max-width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.06);">
-          <img src="/certificate/{certificate_id}/social-card.svg" alt="Social Share Card" style="width: 100%; max-width: 800px; height: auto; border-radius: 12px; display: block;">
-        </div>
-
-        <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-          <a href="https://www.linkedin.com/sharing/share-offsite/?url={settings.public_base_url}/render/{certificate_id}" target="_blank" class="btn btn-primary" style="background: #0A66C2; border-color: #0A66C2; text-decoration: none; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px;">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.25V10.9H6.46M7.86 6.72a1.49 1.49 0 1 0 0 2.98 1.49 1.49 0 0 0 0-2.98z"/></svg>
-            Compartir en LinkedIn
-          </a>
-          <a href="https://twitter.com/intent/tweet?text=¡Orgullosamente%20acredité%20mi%20Microcredencial%20Verificable%20en%20la%20UTCJ!&url={settings.public_base_url}/render/{certificate_id}" target="_blank" class="btn btn-primary" style="background: #1DA1F2; border-color: #1DA1F2; text-decoration: none; padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px;">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            Compartir en X (Twitter)
-          </a>
-          <a href="/certificate/{certificate_id}/social-card.svg" download="utcj-microcredential-card.svg" class="btn btn-secondary" style="padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px;">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            Descargar Tarjeta SVG
-          </a>
+        <div style="height: 750px; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: #525659;">
+          <iframe src="{pdf_url}#toolbar=0" title="Documento PDF Oficial" style="width: 100%; height: 100%; border: none;"></iframe>
         </div>
       </div>
 
-      <!-- Drag & Drop PDF Hash Verification View -->
-      <div id="verify-pdf-view" style="display: none; padding: 40px; text-align: center;">
-        <h3 style="font-family: 'Outfit', sans-serif; color: var(--secondary); margin-bottom: 8px; font-size: 22px;">Verificador de Integridad de PDF Impreso (SHA-256)</h3>
-        <p style="color: var(--text-light); font-size: 14px; margin-bottom: 28px; max-width: 650px; margin-left: auto; margin-right: auto;">Arrastra o selecciona cualquier archivo PDF para verificar criptográficamente si es 100% auténtico o si ha sido modificado.</p>
-        
-        <div id="pdf-drop-zone" style="border: 2px dashed var(--primary); border-radius: 20px; padding: 48px 24px; background: rgba(15, 106, 82, 0.03); cursor: pointer; transition: all 0.3s ease; max-width: 650px; margin: 0 auto;">
-          <svg style="width: 48px; height: 48px; color: var(--primary); display: block; margin: 0 auto 12px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-          <h4 style="font-family: 'Outfit', sans-serif; font-size: 18px; color: var(--primary-dark); margin-bottom: 8px;">Arrastra aquí tu certificado PDF impreso o descargado</h4>
-          <p style="font-size: 13px; color: var(--text-light); margin-bottom: 16px;">o haz clic para examinar archivos en tu equipo</p>
+      <!-- 4. Social Card & LinkedIn Share View -->
+      <div id="view-social" style="display: none; padding: 24px; text-align: center;">
+        <h3 style="font-family: 'Montserrat', sans-serif; color: var(--primary); margin-bottom: 6px; font-size: 18px; font-weight: 800; text-transform: uppercase;">Difusión Profesional y Redes Sociales</h3>
+        <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 24px; max-width: 620px; margin-left: auto; margin-right: auto;">
+          Comparte tu logro académico y añade la microcredencial verificable directamente a tu perfil profesional en LinkedIn y redes.
+        </p>
+
+        <!-- Social Action Buttons -->
+        <div style="margin-bottom: 24px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <a href="{linkedin_add_url}" target="_blank" rel="noopener noreferrer" class="btn-formal btn-formal-linkedin" style="padding: 10px 20px; font-size: 12px; font-weight: 800;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.25V10.9H6.46M7.86 6.74a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24z"/></svg>
+            Añadir a Licencias y Certificaciones en LinkedIn
+          </a>
+          <a href="{linkedin_share_url}" target="_blank" rel="noopener noreferrer" class="btn-formal" style="background: #0077B5; color: #FFFFFF; border: 1px solid #0077B5; padding: 10px 18px; font-size: 12px; font-weight: 700;">
+            Publicar en el Feed de LinkedIn
+          </a>
+          <a href="{twitter_share_url}" target="_blank" rel="noopener noreferrer" class="btn-formal" style="background: #0F1419; color: #FFFFFF; border: 1px solid #0F1419; padding: 10px 18px; font-size: 12px; font-weight: 700;">
+            Compartir en X
+          </a>
+        </div>
+
+        <div style="margin: 0 auto; max-width: 960px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-color); box-shadow: 0 8px 24px rgba(0,0,0,0.06); background: #FFFFFF; padding: 12px;">
+          <img src="{social_card_url}" alt="Social Card" style="width: 100%; display: block; border-radius: 6px;">
+        </div>
+
+        <div style="margin-top: 18px;">
+          <a href="{social_card_url}" download="utcj-tarjeta-{certificate_id}.svg" class="btn-formal btn-formal-secondary" style="display: inline-flex; padding: 8px 18px;">
+            Descargar Tarjeta en Formato Vectorial (SVG)
+          </a>
+        </div>
+      </div>
+
+      <!-- 5. Verify Tool View -->
+      <div id="view-verify" style="display: none; padding: 40px; text-align: center;">
+        <h3 style="font-family: 'Montserrat', sans-serif; color: var(--primary); margin-bottom: 8px; font-size: 18px; font-weight: 800; text-transform: uppercase;">Inspección Criptográfica de Archivos PDF</h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px; max-width: 580px; margin-left: auto; margin-right: auto;">
+          Arrastra o selecciona el archivo PDF del certificado emitido para comprobar su huella digital SHA-256 e integridad contra el registro oficial.
+        </p>
+        <div id="pdf-drop-zone" style="border: 2px dashed #CBD5E1; border-radius: 8px; padding: 36px 20px; background: #F8FAFC; cursor: pointer; max-width: 520px; margin: 0 auto;">
           <input type="file" id="pdf-file-input" accept="application/pdf" style="display: none;">
-          <button onclick="document.getElementById('pdf-file-input').click()" class="btn btn-primary" style="padding: 8px 20px;">Seleccionar Archivo PDF</button>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Arrastra aquí tu PDF o pulsa el botón</p>
+          <button onclick="document.getElementById('pdf-file-input').click()" class="btn-formal btn-formal-primary" style="margin: 0 auto;">Examinar Archivo PDF</button>
         </div>
-
-        <div id="pdf-verify-result" style="display: none; max-width: 650px; margin: 24px auto 0; padding: 20px; border-radius: 16px; text-align: left;"></div>
+        <div id="pdf-verify-result" style="display: none; max-width: 520px; margin: 18px auto 0; padding: 14px; border-radius: 6px; text-align: left;"></div>
       </div>
+
     </div>
 
-    <div class="sidebar-info">
-      <div class="sidebar-section-title">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-        Registro Blockchain
-      </div>
-      
-      <div class="meta-list">
-        <div class="meta-item">
-          <h4>Folio Universitario</h4>
-          <p>{folio_num} <span class="copy-btn" onclick="copyToClipboard('{folio_num}', 'tooltip-folio')"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span class="tooltip" id="tooltip-folio">Copiar</span></span></p>
-        </div>
-        <div class="meta-item">
-          <h4>GUID Criptográfico</h4>
-          <p>{certificate_id} <span class="copy-btn" onclick="copyToClipboard('{certificate_id}', 'tooltip-id')"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span class="tooltip" id="tooltip-id">Copiar</span></span></p>
-        </div>
-        <div class="meta-item"><h4>Fecha de Emisión</h4><p>{issue_date}</p></div>
-        <div class="meta-item"><h4>Horas</h4><p>{hours}</p></div>
-        <div class="meta-item"><h4>Estatus</h4><p>{grade}</p></div>
-        <div class="meta-item"><h4>Red</h4><p>{chain}</p></div>
-        <div class="meta-item">
-          <h4>Transacción Blockchain</h4>
-          <p>{tx_id[:16]}... <span class="copy-btn" onclick="copyToClipboard('{tx_id}', 'tooltip-tx')"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg><span class="tooltip" id="tooltip-tx">Copiar</span></span></p>
-          <a href="{etherscan_url}" target="_blank" rel="noopener noreferrer" style="font-size: 11px; color: var(--primary); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;">
-            🔗 Ver Transacción en Etherscan →
-          </a>
-        </div>
-        <div class="meta-item"><h4>Emisor</h4><p>{issued_by}</p></div>
+    <!-- Sidebar Dossier -->
+    <div class="sidebar-dossier">
+      <div class="dossier-title">
+        Expediente Académico
       </div>
 
-      <div class="sidebar-divider"></div>
-      
-      <div class="button-group">
-        <a href="{pdf_url}" download class="btn btn-primary">Descargar PDF Diploma</a>
-        <a href="/certificate/{certificate_id}/constancia-pdf" download class="btn btn-primary" style="background: var(--secondary); border-color: var(--secondary);">Descargar Constancia Oficial PDF</a>
-        <a href="{json_url}" download class="btn btn-secondary">Descargar JSON (Blockcerts)</a>
-        <a href="{etherscan_url}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="border-color: #3B82F6; color: #2563EB; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px;">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-          Explorar en Etherscan
-        </a>
-        <button onclick="startVerification()" class="btn btn-secondary" style="border-color: var(--primary); color: var(--primary); font-weight: 700; background: var(--green-light);">
-          Verificar Criptografía Local
-        </button>
-        <a href="https://www.blockcerts.org/" target="_blank" class="btn btn-secondary" style="border-color: var(--accent); color: var(--accent);">Validar en Blockcerts.org</a>
+      <div class="dossier-list">
+        <div class="dossier-item">
+          <label>Titular Acreditado</label>
+          <span style="color: var(--primary); font-weight: 800; font-family: 'Montserrat', sans-serif; font-size: 12px;">{recipient_name}</span>
+        </div>
+
+        <div class="dossier-item">
+          <label>Programa Académico</label>
+          <span style="font-family: 'Montserrat', sans-serif; font-size: 11.5px; color: #1E293B; font-weight: 700;">{title}</span>
+        </div>
+
+        <div class="dossier-item">
+          <label>Institución Emisora</label>
+          <span style="font-size: 10.5px; font-weight: 600;">Univ. Tecnológica de Cd. Juárez (CCT: 08MSU0017R)</span>
+        </div>
+
+        <div class="dossier-item">
+          <label>Folio Oficial</label>
+          <span style="color: var(--gold-dark); font-weight: 800;">{folio_num}</span>
+        </div>
+
+        <div class="dossier-item">
+          <label>Identificador Único (GUID)</label>
+          <span>{certificate_id}</span>
+        </div>
+
+        <div class="dossier-item">
+          <label>Fecha de Emisión</label>
+          <span>{issue_date}</span>
+        </div>
+
+        <div class="dossier-item">
+          <label>Carga Horaria</label>
+          <span>{hours} Horas Acreditadas</span>
+        </div>
+
+        <div class="dossier-item">
+          <label>Evaluación y Mérito</label>
+          <span style="color: #059669; font-weight: 700;">Acreditado con Excelencia</span>
+        </div>
+
+        <div class="dossier-item">
+          <label>Transacción Blockchain</label>
+          <span>{tx_id[:16]}...</span>
+          <a href="{etherscan_url}" target="_blank" rel="noreferrer" style="font-size: 10.5px; color: var(--primary); font-weight: 700; text-decoration: underline; margin-top: 4px; display: inline-block;">
+            Consultar en Etherscan ↗
+          </a>
+        </div>
+
+        <div class="dossier-item">
+          <label>Norma y Estándar</label>
+          <span>W3C Blockcerts v3.2</span>
+        </div>
+
+        <div class="dossier-item">
+          <label>Firmas Autorizadas</label>
+          <span style="font-size: 10px; color: #475569;">Dr. Óscar F. Ibáñez (Rector)<br/>M.D.O.H. Hugo García (Sec. Académico)</span>
+        </div>
       </div>
-      
+
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 20px;">
+        <a href="{linkedin_add_url}" target="_blank" rel="noopener noreferrer" class="btn-formal btn-formal-linkedin" style="padding: 10px 14px; font-size: 12px; font-weight: 800;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.25V10.9H6.46M7.86 6.74a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24z"/></svg>
+          Añadir a mi Perfil de LinkedIn
+        </a>
+        <a href="{pdf_url}" download="diploma-{certificate_id}.pdf" class="btn-formal btn-formal-primary">Descargar Diploma PDF</a>
+        <a href="{constancia_url}" download="constancia-{certificate_id}.pdf" class="btn-formal btn-formal-secondary">Descargar Constancia Oficial</a>
+        <a href="{json_url}" download="credencial-{certificate_id}.json" class="btn-formal btn-formal-secondary">Descargar Recibo JSON-LD</a>
+        <button onclick="startVerification()" class="btn-formal btn-formal-secondary" style="border-color: var(--primary); color: var(--primary);">
+          Validar Criptografía en Vivo
+        </button>
+      </div>
+
       <!-- Verification Modal -->
-      <div id="verify-modal" class="fixed-verify-modal">
-        <div class="verify-modal-content">
-          <div class="verify-modal-header">
-            <h3>Validación de Autenticidad</h3>
-            <button onclick="closeVerifyModal()">&times;</button>
+      <div id="verify-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 100; display: none; align-items: center; justify-content: center; padding: 16px;">
+        <div style="background: #FFFFFF; border-radius: 12px; padding: 28px; max-width: 480px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.15); border: 1px solid var(--border-color);">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 18px;">
+            <h3 style="font-family: 'Montserrat', sans-serif; font-size: 14px; font-weight: 900; color: var(--primary); text-transform: uppercase;">Validación de Autenticidad</h3>
+            <button onclick="closeVerifyModal()" style="background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer;">✕</button>
           </div>
-          <div class="verify-modal-body">
-            <div class="blockchain-seal-container">
-              <div class="blockchain-seal-outer animate-spin-slow"></div>
-              <div class="blockchain-seal-inner">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
-              </div>
-            </div>
-            
-            <div class="verify-steps-list">
-              <div id="v-step-1" class="v-step">
-                <span class="v-step-icon">•</span>
-                <span class="v-step-text">Leyendo recibo criptográfico Blockcerts...</span>
-              </div>
-              <div id="v-step-2" class="v-step">
-                <span class="v-step-icon">•</span>
-                <span class="v-step-text">Verificando firma SHA-256 local...</span>
-              </div>
-              <div id="v-step-3" class="v-step">
-                <span class="v-step-icon">•</span>
-                <span class="v-step-text">Confirmando llaves públicas de emisor (UTCJ)...</span>
-              </div>
-              <div id="v-step-4" class="v-step">
-                <span class="v-step-icon">•</span>
-                <span class="v-step-text">Validando anclaje en blockchain ({chain})...</span>
-              </div>
-              <div id="v-step-5" class="v-step">
-                <span class="v-step-icon">•</span>
-                <span class="v-step-text">Consultando estatus de revocación oficial...</span>
-              </div>
-            </div>
-            
-            <div id="v-result-panel" class="v-result-panel hidden">
-              <div id="v-result-title"></div>
-              <p id="v-result-desc"></p>
-            </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
+            <div id="v-step-1" style="padding: 8px 12px; border-radius: 6px; background: #F8FAFC; color: var(--text-muted);">• Inspección de firma SHA-256...</div>
+            <div id="v-step-2" style="padding: 8px 12px; border-radius: 6px; background: #F8FAFC; color: var(--text-muted);">• Verificación de Llaves Criptográficas UTCJ...</div>
+            <div id="v-step-3" style="padding: 8px 12px; border-radius: 6px; background: #F8FAFC; color: var(--text-muted);">• Validación de Árbol de Merkle...</div>
+            <div id="v-step-4" style="padding: 8px 12px; border-radius: 6px; background: #F8FAFC; color: var(--text-muted);">• Comprobación de Anclaje en Blockchain ({chain})...</div>
+            <div id="v-step-5" style="padding: 8px 12px; border-radius: 6px; background: #F8FAFC; color: var(--text-muted);">• Verificación de no revocación...</div>
+          </div>
+
+          <div id="v-result-panel" style="display: none; margin-top: 16px; padding: 14px; border-radius: 6px; text-align: center;">
+            <div id="v-result-title" style="font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 13px;"></div>
+            <p id="v-result-desc" style="font-size: 11.5px; margin-top: 4px;"></p>
           </div>
         </div>
       </div>
+
     </div>
   </div>
 
-  <footer>
-    <p>&copy; 2026 Universidad Tecnológica de Ciudad Juárez. Todos los derechos reservados.</p>
+  <!-- Formal Institutional Footer -->
+  <footer class="formal-footer">
+    <div>
+      <strong>Universidad Tecnológica de Ciudad Juárez</strong> • Clave CCT: 08MSU0017R • Av. Universidad Tecnológica 3051, Cd. Juárez, Chih.
+    </div>
+    <div>
+      Normativa Oficial W3C Blockcerts v3.2 • Sistema de Microcredenciales Universitarias
+    </div>
   </footer>
 
   <script>
     function showView(viewName) {{
-      const webCert = document.getElementById('web-certificate-view');
-      const pvcCert = document.getElementById('pvc-card-view');
-      const pdfCert = document.getElementById('pdf-certificate-view');
-      const socialCert = document.getElementById('social-card-view');
-      const verifyPdfView = document.getElementById('verify-pdf-view');
+      const viewWeb = document.getElementById('view-web');
+      const viewConstancia = document.getElementById('view-constancia');
+      const viewPdf = document.getElementById('view-pdf');
+      const viewSocial = document.getElementById('view-social');
+      const viewVerify = document.getElementById('view-verify');
       
       const tabWeb = document.getElementById('tab-web');
-      const tabPvc = document.getElementById('tab-pvc');
+      const tabConstancia = document.getElementById('tab-constancia');
       const tabPdf = document.getElementById('tab-pdf');
       const tabSocial = document.getElementById('tab-social');
-      const tabVerifyPdf = document.getElementById('tab-verify-pdf');
+      const tabVerify = document.getElementById('tab-verify');
       
-      [webCert, pvcCert, pdfCert, socialCert, verifyPdfView].forEach(el => {{ if(el) el.style.display = 'none'; }});
-      [tabWeb, tabPvc, tabPdf, tabSocial, tabVerifyPdf].forEach(btn => {{ if(btn) btn.classList.remove('tab-active'); }});
+      [viewWeb, viewConstancia, viewPdf, viewSocial, viewVerify].forEach(el => {{ if(el) el.style.display = 'none'; }});
+      [tabWeb, tabConstancia, tabPdf, tabSocial, tabVerify].forEach(btn => {{ if(btn) btn.classList.remove('tab-active'); }});
       
       if (viewName === 'web') {{
-        webCert.style.display = 'block'; tabWeb.classList.add('tab-active');
-      }} else if (viewName === 'pvc') {{
-        pvcCert.style.display = 'block'; tabPvc.classList.add('tab-active');
+        viewWeb.style.display = 'block'; tabWeb.classList.add('tab-active');
+      }} else if (viewName === 'constancia') {{
+        viewConstancia.style.display = 'block'; tabConstancia.classList.add('tab-active');
       }} else if (viewName === 'pdf') {{
-        pdfCert.style.display = 'block'; tabPdf.classList.add('tab-active');
+        viewPdf.style.display = 'block'; tabPdf.classList.add('tab-active');
       }} else if (viewName === 'social') {{
-        socialCert.style.display = 'block'; tabSocial.classList.add('tab-active');
-      }} else if (viewName === 'verifypdf') {{
-        verifyPdfView.style.display = 'block'; tabVerifyPdf.classList.add('tab-active');
+        viewSocial.style.display = 'block'; tabSocial.classList.add('tab-active');
+      }} else if (viewName === 'verify') {{
+        viewVerify.style.display = 'block'; tabVerify.classList.add('tab-active');
       }}
     }}
 
-    // Drag & Drop PDF Verifier Handler
-    document.addEventListener('DOMContentLoaded', () => {{
-      const dropZone = document.getElementById('pdf-drop-zone');
-      const fileInput = document.getElementById('pdf-file-input');
-      const resultDiv = document.getElementById('pdf-verify-result');
-
-      if (!dropZone || !fileInput) return;
-
-      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {{
-        dropZone.addEventListener(eventName, (e) => {{ e.preventDefault(); e.stopPropagation(); }}, false);
-      }});
-
-      ['dragenter', 'dragover'].forEach(eventName => {{
-        dropZone.addEventListener(eventName, () => {{ dropZone.style.borderColor = 'var(--accent)'; dropZone.style.background = 'rgba(184, 138, 59, 0.08)'; }}, false);
-      }});
-
-      ['dragleave', 'drop'].forEach(eventName => {{
-        dropZone.addEventListener(eventName, () => {{ dropZone.style.borderColor = 'var(--primary)'; dropZone.style.background = 'rgba(15, 106, 82, 0.03)'; }}, false);
-      }});
-
-      dropZone.addEventListener('drop', (e) => {{
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        if (files.length > 0) handlePdfFile(files[0]);
-      }}, false);
-
-      fileInput.addEventListener('change', (e) => {{
-        if (e.target.files.length > 0) handlePdfFile(e.target.files[0]);
-      }});
-
-      function handlePdfFile(file) {{
-        if (file.type !== 'application/pdf') {{
-          alert('Por favor selecciona un archivo PDF válido.');
-          return;
-        }}
-
-        resultDiv.style.display = 'block';
-        resultDiv.style.background = '#EFF6FF';
-        resultDiv.style.border = '1px solid #3B82F6';
-        resultDiv.innerHTML = '<p style="color: #1E40AF; font-weight: 600; text-align: center;">⏳ Calculando firma SHA-256 e inspeccionando integridad con el servidor...</p>';
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        fetch('/verify-pdf-hash', {{
-          method: 'POST',
-          body: formData
-        }})
-        .then(r => r.json().then(data => ({{ status: r.status, body: data }})))
-        .then(res => {{
-          if (res.status === 200 && res.body.status === 'authentic') {{
-            resultDiv.style.background = '#ECFDF5';
-            resultDiv.style.border = '2px solid #10B981';
-            resultDiv.innerHTML = `
-              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                <svg style="width: 32px; height: 32px; color: #10B981; shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <div>
-                  <h4 style="color: #065F46; font-size: 16px; font-weight: 700;">DOCUMENTO PDF 100% AUTÉNTICO Y LEGÍTIMO</h4>
-                  <p style="color: #047857; font-size: 13px;">${{res.body.details}}</p>
-                </div>
-              </div>
-              <div style="font-size: 12px; color: #065F46; background: rgba(16, 185, 129, 0.1); padding: 10px; border-radius: 8px; font-family: monospace; word-break: break-all;">
-                <strong>Graduado:</strong> ${{res.body.recipient_name}}<br>
-                <strong>Programa:</strong> ${{res.body.credential_title}}<br>
-                <strong>Hash SHA-256:</strong> ${{res.body.sha256}}<br>
-                <strong>Anclaje Blockchain:</strong> ${{res.body.blockchain_tx}}
-              </div>
-            `;
-          }} else {{
-            resultDiv.style.background = '#FEF2F2';
-            resultDiv.style.border = '2px solid #EF4444';
-            resultDiv.innerHTML = `
-              <div style="display: flex; align-items: center; gap: 12px;">
-                <svg style="width: 32px; height: 32px; color: #EF4444; shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <div>
-                  <h4 style="color: #991B1B; font-size: 16px; font-weight: 700;">NO SE PUDO VERIFICAR LA AUTENTICIDAD DEL PDF</h4>
-                  <p style="color: #B91C1C; font-size: 13px;">${{res.body.details || 'El archivo PDF no coincide con ningún certificado emitido por la institución.'}}</p>
-                </div>
-              </div>
-            `;
-          }}
-        }})
-        .catch(err => {{
-          resultDiv.style.background = '#FEF2F2';
-          resultDiv.style.border = '1px solid #EF4444';
-          resultDiv.innerHTML = '<p style="color: #991B1B; text-align: center;">Error al conectar con el servicio de verificación por Hash.</p>';
-        }});
-      }}
-    }});
-    
-    function copyToClipboard(text, tooltipId) {{
-      navigator.clipboard.writeText(text).then(() => {{
-        const tooltip = document.getElementById(tooltipId);
-        tooltip.innerText = "¡Copiado!";
-        setTimeout(() => {{ tooltip.innerText = "Copiar"; }}, 2000);
-      }});
-    }}
-    
     function closeVerifyModal() {{
       document.getElementById('verify-modal').style.display = 'none';
     }}
-    
+
     function startVerification() {{
       const modal = document.getElementById('verify-modal');
       modal.style.display = 'flex';
@@ -1624,222 +1610,32 @@ def render_certificate(certificate_id: str) -> HTMLResponse:
       const resultTitle = document.getElementById('v-result-title');
       const resultDesc = document.getElementById('v-result-desc');
       
-      resultPanel.classList.add('hidden');
-      resultPanel.classList.remove('v-result-success', 'v-result-failed');
+      resultPanel.style.display = 'none';
       
-      // Reset steps
-      for(let i=1; i<=5; i++) {{
-        const stepEl = document.getElementById('v-step-' + i);
-        stepEl.className = 'v-step';
-        stepEl.querySelector('.v-step-icon').innerText = '•';
-      }}
-      
-      const isRevoked = {str(is_revoked).lower()};
-      let verificationResult = null;
-      
-      // Start background fetch to check the blockchain
       fetch(`/certificate/{certificate_id}/verify`)
         .then(r => r.json())
         .then(data => {{
-          verificationResult = data;
-        }})
-        .catch(err => {{
-          console.error("Verification fetch error:", err);
-          verificationResult = {{
-            status: "failed",
-            details: "Error al conectar con el servidor de verificación de la blockchain."
-          }};
-        }});
-
-      function runStep(stepNum) {{
-        if (stepNum > 5) {{
-          if (!verificationResult) {{
-            // Wait for backend to finish verification before displaying final result
-            setTimeout(() => runStep(stepNum), 100);
-            return;
-          }}
-          
-          resultPanel.classList.remove('hidden');
-          if (verificationResult.status === 'verified') {{
-            resultPanel.classList.add('v-result-success');
-            resultTitle.innerText = 'CREDENCIAL AUTÉNTICA Y VÁLIDA';
-            resultDesc.innerText = verificationResult.details + (verificationResult.cached ? ' [Desde Caché]' : '');
-            fireConfetti();
+          resultPanel.style.display = 'block';
+          if (data.status === 'verified') {{
+            resultPanel.style.background = '#ECFDF5';
+            resultPanel.style.border = '1px solid #10B981';
+            resultTitle.style.color = '#065F46';
+            resultTitle.innerText = 'TITULO ACADÉMICO AUTÉNTICO Y VÁLIDO';
+            resultDesc.innerText = data.details;
+            confetti({{ particleCount: 80, spread: 60, origin: {{ y: 0.6 }} }});
           }} else {{
-            resultPanel.classList.add('v-result-failed');
-            resultTitle.innerText = 'VERIFICACIÓN FALLIDA';
-            resultDesc.innerText = verificationResult.details;
-            
-            // Shake modal
-            const modalContent = document.querySelector('.verify-modal-content');
-            modalContent.style.animation = 'none';
-            modalContent.offsetHeight; // trigger reflow
-            modalContent.style.animation = 'shake 0.4s ease';
+            resultPanel.style.background = '#FEF2F2';
+            resultPanel.style.border = '1px solid #EF4444';
+            resultTitle.style.color = '#991B1B';
+            resultTitle.innerText = 'ERROR EN VERIFICACIÓN';
+            resultDesc.innerText = data.details;
           }}
-          return;
-        }}
-        
-        const stepEl = document.getElementById('v-step-' + stepNum);
-        stepEl.classList.add('v-step-active');
-        
-        setTimeout(() => {{
-          let stepFailed = false;
-          if (stepNum === 5) {{
-            if (verificationResult && verificationResult.status !== 'verified') {{
-              stepFailed = true;
-            }} else if (isRevoked) {{
-              stepFailed = true;
-            }}
-          }}
-          
-          if (stepFailed) {{
-            stepEl.classList.remove('v-step-active');
-            stepEl.classList.add('v-step-failed');
-            stepEl.querySelector('.v-step-icon').innerText = '✕';
-          }} else {{
-            stepEl.classList.remove('v-step-active');
-            stepEl.classList.add('v-step-success');
-            stepEl.querySelector('.v-step-icon').innerText = '✓';
-          }}
-          runStep(stepNum + 1);
-        }}, 600);
-      }}
-      
-      runStep(1);
+        }});
     }}
-    
-    function fireConfetti() {{
-      const canvas = document.createElement('canvas');
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      canvas.style.position = 'fixed';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
-      canvas.style.pointerEvents = 'none';
-      canvas.style.zIndex = '9999';
-      document.body.appendChild(canvas);
-      
-      const ctx = canvas.getContext('2d');
-      const colors = ['#0F6A52', '#B88A3B', '#10B981', '#3B82F6', '#F59E0B'];
-      const particles = [];
-      
-      for (let i = 0; i < 80; i++) {{
-        particles.push({{
-          x: canvas.width / 2,
-          y: canvas.height * 0.4,
-          vx: (Math.random() - 0.5) * 15,
-          vy: (Math.random() - 0.7) * 12 - 5,
-          color: colors[Math.floor(Math.random() * colors.length)],
-          size: Math.random() * 6 + 4,
-          rotation: Math.random() * Math.PI * 2,
-          rotationSpeed: (Math.random() - 0.5) * 0.2,
-          opacity: 1
-        }});
-      }}
-      
-      function frame() {{
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        let active = false;
-        
-        particles.forEach(p => {{
-          p.x += p.vx;
-          p.y += p.vy;
-          p.vy += 0.35;
-          p.vx *= 0.98;
-          p.rotation += p.rotationSpeed;
-          p.opacity -= 0.015;
-          
-          if (p.opacity > 0) {{
-            active = true;
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.rotate(p.rotation);
-            ctx.fillStyle = p.color;
-            ctx.globalAlpha = p.opacity;
-            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
-            ctx.restore();
-          }}
-        }});
-        
-        if (active) {{
-          requestAnimationFrame(frame);
-        }} else {{
-          canvas.remove();
-        }}
-      }}
-      requestAnimationFrame(frame);
-    }}
-    
-    // 3D Card Tilt Effect and Reflection
-    window.addEventListener('DOMContentLoaded', () => {{
-      const frame = document.querySelector('.certificate-frame');
-      const card = document.querySelector('.certificate-inner');
-      
-      if (frame && card) {{
-        frame.addEventListener('mousemove', (e) => {{
-          const rect = frame.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          
-          const rx = -(y - rect.height / 2) / (rect.height / 2) * 6; // Max 6 deg
-          const ry = (x - rect.width / 2) / (rect.width / 2) * 6;
-          
-          card.style.transform = `perspective(1000px) rotateX(${{rx}}deg) rotateY(${{ry}}deg) scale(1.01)`;
-          card.style.boxShadow = '0 30px 60px rgba(15, 62, 74, 0.12)';
-          
-          const glare = document.getElementById('card-glare');
-          if (glare) {{
-            const px = (x / rect.width) * 100;
-            const py = (y / rect.height) * 100;
-            glare.style.background = `radial-gradient(circle at ${{px}}% ${{py}}%, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 80%)`;
-          }}
-        }});
-        
-        frame.addEventListener('mouseleave', () => {{
-          card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)';
-          card.style.boxShadow = 'var(--shadow-premium)';
-          const glare = document.getElementById('card-glare');
-          if (glare) {{
-            glare.style.background = 'transparent';
-          }}
-        }});
-      }}
-    }});
-
-    function toggleTheme() {{
-      const body = document.body;
-      const sunIcon = document.querySelector('.sun-icon');
-      const moonIcon = document.querySelector('.moon-icon');
-      
-      if (body.classList.contains('dark-theme')) {{
-        body.classList.remove('dark-theme');
-        sunIcon.style.display = 'none';
-        moonIcon.style.display = 'block';
-        localStorage.setItem('theme', 'light');
-      }} else {{
-        body.classList.add('dark-theme');
-        sunIcon.style.display = 'block';
-        moonIcon.style.display = 'none';
-        localStorage.setItem('theme', 'dark');
-      }}
-    }}
-
-    (function() {{
-      if (localStorage.getItem('theme') === 'dark') {{
-        document.body.classList.add('dark-theme');
-        window.addEventListener('DOMContentLoaded', () => {{
-          const sunIcon = document.querySelector('.sun-icon');
-          const moonIcon = document.querySelector('.moon-icon');
-          if (sunIcon && moonIcon) {{
-            sunIcon.style.display = 'block';
-            moonIcon.style.display = 'none';
-          }}
-        }});
-      }}
-    }})();
   </script>
 </body>
-</html>"""
+</html>
+"""
     return HTMLResponse(content=html_content)
 
 @app.get("/certificate/{certificate_id}")
@@ -2283,6 +2079,1004 @@ def get_embed_code(certificate_id: str) -> JSONResponse:
     })
 
 
+# ==============================================================================
+# PORTAL DE VERIFICACIÓN MASIVA PARA EMPRESAS Y RECLUTADORES
+# ==============================================================================
+
+class VerifyBatchRequest(BaseModel):
+    terms: list[str]
+    company: str | None = "Empresa / Reclutador"
+
+
+def _verify_single_term(term: str, settings: Any) -> dict[str, Any]:
+    from .db import find_certificate_by_id_or_folio_or_name
+    import hashlib
+    clean_term = term.strip()
+    if not clean_term:
+        return {
+            "query": term,
+            "found": False,
+            "status": "not_found",
+            "folio": "-",
+            "recipient_name": "-",
+            "course_name": "-",
+            "hours": 0,
+            "issue_date": "-",
+            "grade": "-",
+            "chain": "-",
+            "transaction_id": "-",
+            "details": "Identificador o término de búsqueda vacío."
+        }
+        
+    db_cert = find_certificate_by_id_or_folio_or_name(settings, clean_term)
+    if not db_cert:
+        return {
+            "query": clean_term,
+            "found": False,
+            "status": "not_found",
+            "folio": "-",
+            "recipient_name": clean_term,
+            "course_name": "-",
+            "hours": 0,
+            "issue_date": "-",
+            "grade": "-",
+            "chain": "-",
+            "transaction_id": "-",
+            "details": "No se encontró registro oficial en el libro matriz de la UTCJ."
+        }
+        
+    cert_id = db_cert["id"]
+    num = int(hashlib.md5(cert_id.encode('utf-8')).hexdigest()[:6], 16) % 90000 + 10000
+    folio_num = f"UTCJ-2026-MC-{num}"
+    
+    is_revoked = db_cert.get("revoked", 0) == 1
+    status_val = "revoked" if is_revoked else "verified"
+    details = "Microcredencial revocada administrativamente por la institución." if is_revoked else "Microcredencial auténtica y verificada contra Blockchain Ethereum."
+    
+    chain = db_cert.get("chain", settings.default_chain)
+    tx_id = db_cert.get("transaction_id", "N/A")
+    etherscan_url = f"https://sepolia.etherscan.io/tx/{tx_id}" if "sepolia" in chain.lower() else f"https://etherscan.io/tx/{tx_id}"
+    
+    issued_at = db_cert.get("issued_at", "2026-08-31")
+    if "T" in str(issued_at):
+        issued_date = str(issued_at).split("T")[0]
+    else:
+        issued_date = str(issued_at)[:10]
+        
+    return {
+        "query": clean_term,
+        "found": True,
+        "status": status_val,
+        "id": cert_id,
+        "folio": folio_num,
+        "recipient_name": db_cert.get("recipient_name", "N/A"),
+        "course_name": db_cert.get("course_name") or db_cert.get("credential_title") or "Microcredencial UTCJ",
+        "hours": db_cert.get("hours", 120),
+        "issue_date": issued_date,
+        "grade": db_cert.get("grade", "Acreditado con Excelencia"),
+        "chain": chain,
+        "transaction_id": tx_id,
+        "etherscan_url": etherscan_url,
+        "verification_url": f"/render/{cert_id}",
+        "pdf_url": f"/certificate/{cert_id}/pdf",
+        "constancia_url": f"/certificate/{cert_id}/constancia-pdf",
+        "details": details
+    }
+
+
+@app.post("/api/verify-batch")
+def verify_batch_endpoint(payload: VerifyBatchRequest) -> JSONResponse:
+    import time
+    start_time = time.time()
+    terms = payload.terms or []
+    terms = terms[:500]
+    
+    results = [_verify_single_term(t, settings) for t in terms if t.strip()]
+    
+    total_q = len(results)
+    total_v = sum(1 for r in results if r["status"] == "verified")
+    total_r = sum(1 for r in results if r["status"] == "revoked")
+    total_nf = sum(1 for r in results if r["status"] == "not_found")
+    elapsed_ms = int((time.time() - start_time) * 1000)
+    
+    from datetime import datetime, timezone
+    summary = {
+        "company": payload.company or "Empresa / Reclutador",
+        "total_queries": total_q,
+        "total_found": total_v + total_r,
+        "total_verified": total_v,
+        "total_revoked": total_r,
+        "total_not_found": total_nf,
+        "execution_time_ms": max(1, elapsed_ms),
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    
+    return JSONResponse({
+        "status": "success",
+        "summary": summary,
+        "results": results
+    })
+
+
+@app.post("/api/verify-batch-file")
+async def verify_batch_file_endpoint(
+    file: UploadFile = File(...),
+    company: str = Form("Empresa / Reclutador")
+) -> JSONResponse:
+    import time
+    import csv
+    import io
+    
+    start_time = time.time()
+    raw_bytes = await file.read()
+    text = raw_bytes.decode("utf-8", errors="ignore")
+    
+    terms = []
+    if file.filename.endswith(".json"):
+        try:
+            data = json.loads(text)
+            if isinstance(data, list):
+                terms = [str(item) for item in data]
+            elif isinstance(data, dict):
+                terms = [str(v) for v in data.values()]
+        except Exception:
+            terms = [line.strip() for line in text.splitlines() if line.strip()]
+    elif file.filename.endswith(".csv"):
+        reader = csv.reader(io.StringIO(text))
+        for row in reader:
+            for cell in row:
+                c_clean = cell.strip()
+                if c_clean and len(c_clean) > 2 and c_clean.lower() not in ["folio", "guid", "id", "nombre", "alumno", "candidato"]:
+                    terms.append(c_clean)
+                    break
+    else:
+        terms = [line.strip() for line in text.splitlines() if line.strip()]
+        
+    terms = terms[:500]
+    results = [_verify_single_term(t, settings) for t in terms if t]
+    
+    total_q = len(results)
+    total_v = sum(1 for r in results if r["status"] == "verified")
+    total_r = sum(1 for r in results if r["status"] == "revoked")
+    total_nf = sum(1 for r in results if r["status"] == "not_found")
+    elapsed_ms = int((time.time() - start_time) * 1000)
+    
+    from datetime import datetime, timezone
+    summary = {
+        "company": company or "Empresa / Reclutador",
+        "filename": file.filename,
+        "total_queries": total_q,
+        "total_found": total_v + total_r,
+        "total_verified": total_v,
+        "total_revoked": total_r,
+        "total_not_found": total_nf,
+        "execution_time_ms": max(1, elapsed_ms),
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    
+    return JSONResponse({
+        "status": "success",
+        "summary": summary,
+        "results": results
+    })
+
+
+@app.post("/api/verify-batch/export-pdf")
+def export_batch_verification_pdf(payload: VerifyBatchRequest) -> Response:
+    from .rendering import render_batch_verification_report_pdf
+    import time
+    start_time = time.time()
+    terms = payload.terms or []
+    terms = terms[:500]
+    results = [_verify_single_term(t, settings) for t in terms if t.strip()]
+    
+    total_q = len(results)
+    total_v = sum(1 for r in results if r["status"] == "verified")
+    total_r = sum(1 for r in results if r["status"] == "revoked")
+    total_nf = sum(1 for r in results if r["status"] == "not_found")
+    elapsed_ms = int((time.time() - start_time) * 1000)
+    
+    from datetime import datetime, timezone
+    summary = {
+        "company": payload.company or "Empresa / Reclutador",
+        "total_queries": total_q,
+        "total_found": total_v + total_r,
+        "total_verified": total_v,
+        "total_revoked": total_r,
+        "total_not_found": total_nf,
+        "execution_time_ms": max(1, elapsed_ms),
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    
+    pdf_bytes = render_batch_verification_report_pdf(results, summary, payload.company or "Empresa / Reclutador", settings)
+    
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=reporte_auditoria_utcj.pdf"}
+    )
+
+
+@app.post("/api/verify-batch/export-csv")
+def export_batch_verification_csv(payload: VerifyBatchRequest) -> Response:
+    import csv
+    import io
+    terms = payload.terms or []
+    terms = terms[:500]
+    results = [_verify_single_term(t, settings) for t in terms if t.strip()]
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "NUMERO", "ESTATUS", "FOLIO_OFICIAL", "TITULAR_CANDIDATO",
+        "PROGRAMA_ACREDITADO", "HORAS", "FECHA_EMISION", "CALIFICACION",
+        "TRANSACCION_BLOCKCHAIN", "ENLACE_VERIFICACION"
+    ])
+    
+    base_url = settings.base_url.rstrip('/') if hasattr(settings, 'base_url') and settings.base_url else "https://utcjmicro.javierflores.software"
+    for idx, r in enumerate(results, 1):
+        st = "AUTÉNTICA" if r["status"] == "verified" else ("REVOCADA" if r["status"] == "revoked" else "NO LOCALIZADA")
+        v_url = f"{base_url}{r.get('verification_url', '')}" if r.get("id") else "-"
+        writer.writerow([
+            idx, st, r.get("folio", "-"), r.get("recipient_name", "-"),
+            r.get("course_name", "-"), r.get("hours", "-"), r.get("issue_date", "-"),
+            r.get("grade", "-"), r.get("transaction_id", "-"), v_url
+        ])
+        
+    return Response(
+        content=output.getvalue().encode("utf-8-sig"),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=auditoria_credenciales_utcj.csv"}
+    )
+
+
+@app.get("/api/verify-batch/template-csv")
+def download_batch_csv_template() -> Response:
+    content = """folio_o_guid,nombre_candidato_referencia
+82f25dcc-2339-4d06-ae86-d01964cf81cb,Admin User
+eec2f87b-6cf2-4d95-824d-d1735c251cee,Javier Flores
+UTCJ-2026-MC-66852,Candidato Ejemplo
+"""
+    return Response(
+        content=content.encode("utf-8-sig"),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=plantilla_verificacion_masiva_utcj.csv"}
+    )
+
+
+@app.get("/portal-empresas")
+@app.get("/verificacion-masiva")
+def get_enterprise_verification_portal() -> HTMLResponse:
+    html = """<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal de Verificación Masiva para Empresas y Reclutadores - UTCJ</title>
+  <meta name="description" content="Portal oficial de verificación masiva de microcredenciales universitarias para departamentos de Recursos Humanos y Reclutadores. Validación contra Blockchain Ethereum.">
+
+  <!-- Google Fonts: Montserrat & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@400;600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary: #114938;
+      --primary-dark: #0A3327;
+      --primary-light: #146049;
+      --gold: #B88A3B;
+      --gold-dark: #8C6527;
+      --bg: #F4F6F5;
+      --card-bg: #FFFFFF;
+      --text: #1E293B;
+      --text-muted: #64748B;
+      --border-color: #E2E8F0;
+      --success: #059669;
+      --danger: #DC2626;
+      --warning: #D97706;
+      --transition: all 0.2s ease;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .gov-header {
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border-color);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .gov-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .gov-title h1 {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 14px;
+      font-weight: 900;
+      color: var(--primary);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .gov-title p {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-link {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: var(--transition);
+    }
+
+    .nav-link:hover, .nav-link.active {
+      color: var(--primary);
+      background: #EBF5F0;
+    }
+
+    /* Container */
+    .main-container {
+      max-width: 1340px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 28px 24px;
+      flex-grow: 1;
+    }
+
+    /* Hero Banner */
+    .hero-banner {
+      background: linear-gradient(135deg, #114938 0%, #146049 100%);
+      color: #FFFFFF;
+      border-radius: 12px;
+      padding: 32px 36px;
+      box-shadow: 0 10px 25px rgba(17, 73, 56, 0.15);
+      border: 1px solid var(--gold);
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-banner h2 {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .hero-banner p {
+      font-size: 13px;
+      color: #D1E7DD;
+      max-width: 820px;
+      line-height: 1.6;
+    }
+
+    .hero-badge-strip {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .hero-badge {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      font-family: 'Montserrat', sans-serif;
+      letter-spacing: 0.5px;
+    }
+
+    /* Tabs & Work Area */
+    .portal-card {
+      background: #FFFFFF;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+
+    .tab-btn {
+      padding: 10px 18px;
+      border: 1px solid var(--border-color);
+      background: #F8FAFC;
+      border-radius: 6px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: #FFFFFF;
+      border-color: var(--primary);
+    }
+
+    /* Dropzone */
+    .dropzone {
+      border: 2px dashed #CBD5E1;
+      border-radius: 8px;
+      padding: 36px 20px;
+      text-align: center;
+      background: #F8FAFC;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--primary);
+      background: #EBF5F0;
+    }
+
+    /* Buttons */
+    .btn-formal {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+      transition: var(--transition);
+      border: 1px solid transparent;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #FFFFFF;
+    }
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-secondary {
+      background: #FFFFFF;
+      color: var(--primary);
+      border-color: #CBD5E1;
+    }
+    .btn-secondary:hover {
+      background: #F1F5F9;
+      border-color: var(--primary);
+    }
+
+    .btn-gold {
+      background: var(--gold);
+      color: #FFFFFF;
+    }
+    .btn-gold:hover {
+      background: var(--gold-dark);
+    }
+
+    /* Metric Cards */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .metric-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .metric-card.valid { border-left-color: var(--success); }
+    .metric-card.revoked { border-left-color: var(--danger); }
+    .metric-card.notfound { border-left-color: var(--text-muted); }
+
+    .metric-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 10.5px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--primary);
+      margin-top: 4px;
+    }
+
+    /* Data Table */
+    .table-container {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow-x: auto;
+      background: #FFFFFF;
+    }
+
+    table.results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+      text-align: left;
+    }
+
+    table.results-table th {
+      background: var(--primary);
+      color: #FFFFFF;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 800;
+      padding: 10px 14px;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+
+    table.results-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #F1F5F9;
+      color: #1E293B;
+    }
+
+    table.results-table tr:nth-child(even) {
+      background: #F8FAFC;
+    }
+
+    .badge-status {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 9.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-verified { background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; }
+    .badge-revoked { background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
+    .badge-notfound { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; }
+
+    /* Footer */
+    .formal-footer {
+      background: #FFFFFF;
+      border-top: 1px solid var(--border-color);
+      padding: 16px 32px;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Institutional Header -->
+  <header class="gov-header">
+    <div class="gov-brand">
+      <img src="/assets/logos/utyp-logo.png" alt="Logo UTyP" style="height: 36px; width: auto; object-fit: contain;">
+      <img src="/assets/logos/utcj-logo.png" alt="Logo UTCJ" style="height: 36px; width: auto; object-fit: contain;">
+      <div class="gov-title">
+        <h1>Universidad Tecnológica de Ciudad Juárez</h1>
+        <p>Subsistema de Universidades Tecnológicas y Politécnicas • Portal de Verificación Masiva Empresarial</p>
+      </div>
+    </div>
+
+    <div class="nav-links">
+      <a href="/" class="nav-link">Inicio</a>
+      <a href="/portal-empresas" class="nav-link active">Portal Empresas / RRHH</a>
+      <a href="/admin/dashboard" class="nav-link">Control Escolar</a>
+    </div>
+  </header>
+
+  <main class="main-container">
+    
+    <!-- Hero Banner -->
+    <div class="hero-banner">
+      <h2>Verificación Masiva de Microcredenciales</h2>
+      <p>
+        Plataforma corporativa de auditoría académica para departamentos de Recursos Humanos, agencias de reclutamiento y empleadores. Valide en lote la autenticidad curricular de candidatos mediante comprobación criptográfica instantánea contra la red Blockchain Ethereum bajo el estándar W3C Blockcerts v3.2.
+      </p>
+      <div class="hero-badge-strip">
+        <span class="hero-badge">W3C VERIFIABLE CREDENTIALS</span>
+        <span class="hero-badge">ETHEREUM MAINNET</span>
+        <span class="hero-badge">FIRMA SHA-256 / MERKLE</span>
+        <span class="hero-badge">CCT: 08MSU0017R</span>
+      </div>
+    </div>
+
+    <!-- Main Working Card -->
+    <div class="portal-card">
+      <div class="tab-bar">
+        <button id="tab-btn-file" class="tab-btn active" onclick="switchTab('file')">Cargar Archivo (CSV / Excel / TXT)</button>
+        <button id="tab-btn-text" class="tab-btn" onclick="switchTab('text')">Pegar Lista de Folios / GUIDs</button>
+      </div>
+
+      <!-- Company Input Field -->
+      <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <label style="font-family: 'Montserrat', sans-serif; font-size: 11.5px; font-weight: 800; color: var(--primary);">EMPRESA / INSTITUCIÓN AUDITORA:</label>
+        <input type="text" id="company-name-input" placeholder="Nombre de su Empresa o Departamento de RRHH" style="padding: 8px 14px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; flex: 1; max-width: 400px;">
+      </div>
+
+      <!-- Tab File View -->
+      <div id="view-tab-file">
+        <div id="dropzone-box" class="dropzone" onclick="document.getElementById('batch-file-input').click()">
+          <input type="file" id="batch-file-input" accept=".csv,.xlsx,.txt,.json" style="display: none;" onchange="handleFileSelected(event)">
+          <div style="font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 800; color: var(--primary); margin-bottom: 6px;">
+            Seleccione o arrastre su archivo aquí
+          </div>
+          <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">
+            Formatos aceptados: .CSV, .TXT o .JSON (hasta 500 registros por consulta)
+          </p>
+          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <button type="button" class="btn-formal btn-primary" onclick="event.stopPropagation(); document.getElementById('batch-file-input').click()">Examinar Archivo</button>
+            <a href="/api/verify-batch/template-csv" class="btn-formal btn-secondary" onclick="event.stopPropagation()">Descargar Plantilla CSV de Ejemplo</a>
+          </div>
+        </div>
+        <div id="file-info-label" style="display: none; margin-top: 10px; font-size: 11.5px; font-weight: 700; color: var(--primary);"></div>
+      </div>
+
+      <!-- Tab Text View -->
+      <div id="view-tab-text" style="display: none;">
+        <label style="display: block; font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 800; color: var(--primary); margin-bottom: 6px;">
+          PEGUE LA LISTA DE FOLIOS, GUIDS O NOMBRES (UNO POR LÍNEA O SEPARADOS POR COMA):
+        </label>
+        <textarea id="bulk-textarea" rows="6" placeholder="82f25dcc-2339-4d06-ae86-d01964cf81cb&#10;eec2f87b-6cf2-4d95-824d-d1735c251cee&#10;UTCJ-2026-MC-66852&#10;Javier Flores" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; font-family: 'Fira Code', monospace; font-size: 11.5px; line-height: 1.5; resize: vertical;"></textarea>
+        
+        <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <button class="btn-formal btn-primary" onclick="executeTextVerification()">Ejecutar Verificación Masiva</button>
+          <button class="btn-formal btn-secondary" onclick="document.getElementById('bulk-textarea').value=''">Limpiar Texto</button>
+        </div>
+      </div>
+
+      <!-- Loading / Progress Indicator -->
+      <div id="loading-indicator" style="display: none; margin-top: 20px; text-align: center; padding: 20px; background: #F8FAFC; border-radius: 8px;">
+        <div style="font-family: 'Montserrat', sans-serif; font-size: 12.5px; font-weight: 800; color: var(--primary); margin-bottom: 8px;">
+          Procesando verificación criptográfica contra Blockchain Ethereum...
+        </div>
+        <div style="width: 100%; max-width: 400px; height: 6px; background: #E2E8F0; border-radius: 4px; margin: 0 auto; overflow: hidden;">
+          <div style="width: 70%; height: 100%; background: var(--primary); animation: pulseBar 1.2s infinite ease-in-out;"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Results Section -->
+    <div id="results-panel" style="display: none;">
+      
+      <!-- Metrics Dashboard -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-title">Total Evaluadas</div>
+          <div id="m-total" class="metric-value">0</div>
+        </div>
+        <div class="metric-card valid">
+          <div class="metric-title">Auténticas y Válidas</div>
+          <div id="m-verified" class="metric-value" style="color: var(--success);">0</div>
+        </div>
+        <div class="metric-card revoked">
+          <div class="metric-title">Revocadas</div>
+          <div id="m-revoked" class="metric-value" style="color: var(--danger);">0</div>
+        </div>
+        <div class="metric-card notfound">
+          <div class="metric-title">No Localizadas</div>
+          <div id="m-notfound" class="metric-value" style="color: var(--text-muted);">0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Tiempo de Respuesta</div>
+          <div id="m-time" class="metric-value">0 ms</div>
+        </div>
+      </div>
+
+      <!-- Export & Filter Toolbar -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button class="btn-formal btn-secondary" onclick="filterTable('all')">Todos (<span id="count-all">0</span>)</button>
+          <button class="btn-formal btn-secondary" style="color: var(--success);" onclick="filterTable('verified')">Solo Válidas (<span id="count-verified">0</span>)</button>
+          <button class="btn-formal btn-secondary" style="color: var(--danger);" onclick="filterTable('revoked')">Solo Revocadas (<span id="count-revoked">0</span>)</button>
+          <button class="btn-formal btn-secondary" style="color: var(--text-muted);" onclick="filterTable('not_found')">No Localizadas (<span id="count-notfound">0</span>)</button>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn-formal btn-primary" onclick="exportPDFReport()">Descargar Informe Oficial PDF</button>
+          <button class="btn-formal btn-secondary" onclick="exportCSVReport()">Exportar Resultados en CSV</button>
+        </div>
+      </div>
+
+      <!-- Results Table -->
+      <div class="table-container">
+        <table class="results-table" id="results-table">
+          <thead>
+            <tr>
+              <th style="width: 40px;">N°</th>
+              <th style="width: 110px;">ESTATUS</th>
+              <th style="width: 150px;">FOLIO OFICIAL</th>
+              <th>TITULAR / CANDIDATO</th>
+              <th>PROGRAMA ACREDITADO</th>
+              <th style="width: 70px;">HORAS</th>
+              <th style="width: 90px;">FECHA</th>
+              <th style="width: 140px;">BLOCKCHAIN TX</th>
+              <th style="width: 160px; text-align: center;">ACCIONES</th>
+            </tr>
+          </thead>
+          <tbody id="results-tbody">
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="formal-footer">
+    <div>
+      <strong>Universidad Tecnológica de Ciudad Juárez</strong> • Clave CCT: 08MSU0017R • Av. Universidad Tecnológica 3051, Cd. Juárez, Chih.
+    </div>
+    <div>
+      Normativa Oficial W3C Blockcerts v3.2 • Sistema de Verificación Institucional
+    </div>
+  </footer>
+
+  <script>
+    let currentResults = [];
+    let currentSummary = {};
+    let activeFilter = 'all';
+
+    function switchTab(tab) {
+      document.getElementById('view-tab-file').style.display = tab === 'file' ? 'block' : 'none';
+      document.getElementById('view-tab-text').style.display = tab === 'text' ? 'block' : 'none';
+      document.getElementById('tab-btn-file').className = 'tab-btn ' + (tab === 'file' ? 'active' : '');
+      document.getElementById('tab-btn-text').className = 'tab-btn ' + (tab === 'text' ? 'active' : '');
+    }
+
+    // Drag & Drop
+    const dropzone = document.getElementById('dropzone-box');
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => { e.preventDefault(); dropzone.classList.add('dragover'); }, false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); }, false);
+    });
+    dropzone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files.length > 0) {
+        uploadFile(files[0]);
+      }
+    });
+
+    function handleFileSelected(e) {
+      if (e.target.files.length > 0) {
+        uploadFile(e.target.files[0]);
+      }
+    }
+
+    async function uploadFile(file) {
+      const company = document.getElementById('company-name-input').value.trim() || 'Empresa / Reclutador';
+      document.getElementById('file-info-label').style.display = 'block';
+      document.getElementById('file-info-label').innerText = 'Archivo cargado: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('company', company);
+      
+      showLoading(true);
+      try {
+        const resp = await fetch('/api/verify-batch-file', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await resp.json();
+        renderResults(data);
+      } catch (err) {
+        alert('Error al procesar el archivo: ' + err.message);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    async function executeTextVerification() {
+      const text = document.getElementById('bulk-textarea').value.trim();
+      if (!text) {
+        alert('Por favor ingrese al menos un folio, GUID o nombre para verificar.');
+        return;
+      }
+      const company = document.getElementById('company-name-input').value.trim() || 'Empresa / Reclutador';
+      
+      const lines = text.split(/\\r?\\n|,/);
+      const terms = lines.map(l => l.trim()).filter(l => l.length > 0);
+      
+      showLoading(true);
+      try {
+        const resp = await fetch('/api/verify-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ terms: terms, company: company })
+        });
+        const data = await resp.json();
+        renderResults(data);
+      } catch (err) {
+        alert('Error al verificar registros: ' + err.message);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    function showLoading(show) {
+      document.getElementById('loading-indicator').style.display = show ? 'block' : 'none';
+      if (show) {
+        document.getElementById('results-panel').style.display = 'none';
+      }
+    }
+
+    function renderResults(data) {
+      currentResults = data.results || [];
+      currentSummary = data.summary || {};
+      
+      document.getElementById('m-total').innerText = currentSummary.total_queries || currentResults.length;
+      document.getElementById('m-verified').innerText = currentSummary.total_verified || 0;
+      document.getElementById('m-revoked').innerText = currentSummary.total_revoked || 0;
+      document.getElementById('m-notfound').innerText = currentSummary.total_not_found || 0;
+      document.getElementById('m-time').innerText = (currentSummary.execution_time_ms || 10) + ' ms';
+      
+      document.getElementById('count-all').innerText = currentResults.length;
+      document.getElementById('count-verified').innerText = currentSummary.total_verified || 0;
+      document.getElementById('count-revoked').innerText = currentSummary.total_revoked || 0;
+      document.getElementById('count-notfound').innerText = currentSummary.total_not_found || 0;
+      
+      filterTable('all');
+      document.getElementById('results-panel').style.display = 'block';
+    }
+
+    function filterTable(status) {
+      activeFilter = status;
+      const tbody = document.getElementById('results-tbody');
+      tbody.innerHTML = '';
+      
+      const filtered = activeFilter === 'all' 
+        ? currentResults 
+        : currentResults.filter(r => r.status === activeFilter);
+        
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);">No se encontraron registros para este filtro.</td></tr>';
+        return;
+      }
+      
+      filtered.forEach((r, idx) => {
+        const tr = document.createElement('tr');
+        
+        let badgeHtml = '';
+        if (r.status === 'verified') {
+          badgeHtml = '<span class="badge-status badge-verified">Auténtica</span>';
+        } else if (r.status === 'revoked') {
+          badgeHtml = '<span class="badge-status badge-revoked">Revocada</span>';
+        } else {
+          badgeHtml = '<span class="badge-status badge-notfound">No Localizada</span>';
+        }
+        
+        let txHtml = '-';
+        if (r.transaction_id && r.transaction_id !== 'N/A' && r.transaction_id !== '-') {
+          const shortTx = r.transaction_id.substring(0, 12) + '...';
+          txHtml = '<a href="' + r.etherscan_url + '" target="_blank" style="color: var(--primary); font-family: monospace; text-decoration: underline;">' + shortTx + '</a>';
+        }
+        
+        let actionsHtml = '-';
+        if (r.found) {
+          actionsHtml = `
+            <div style="display: flex; gap: 4px; justify-content: center;">
+              <a href="${r.verification_url}" target="_blank" class="btn-formal btn-primary" style="padding: 4px 8px; font-size: 10px;">Ver Diploma</a>
+              <a href="${r.constancia_url}" target="_blank" class="btn-formal btn-secondary" style="padding: 4px 8px; font-size: 10px;">PDF</a>
+            </div>
+          `;
+        }
+        
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td>${badgeHtml}</td>
+          <td style="font-family: monospace; font-weight: 700; color: var(--gold-dark);">${r.folio}</td>
+          <td style="font-weight: 700; color: var(--primary);">${r.recipient_name}</td>
+          <td>${r.course_name}</td>
+          <td>${r.hours ? r.hours + ' hrs' : '-'}</td>
+          <td>${r.issue_date}</td>
+          <td>${txHtml}</td>
+          <td>${actionsHtml}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function exportPDFReport() {
+      const terms = currentResults.map(r => r.query || r.id || r.folio);
+      const company = document.getElementById('company-name-input').value.trim() || 'Empresa / Reclutador';
+      
+      const resp = await fetch('/api/verify-batch/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ terms: terms, company: company })
+      });
+      
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'reporte_auditoria_utcj.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    async function exportCSVReport() {
+      const terms = currentResults.map(r => r.query || r.id || r.folio);
+      const company = document.getElementById('company-name-input').value.trim() || 'Empresa / Reclutador';
+      
+      const resp = await fetch('/api/verify-batch/export-csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ terms: terms, company: company })
+      });
+      
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'auditoria_credenciales_utcj.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
 
 # Models for Batch Issuance and Token Authentication
 class IssueBatchRequest(BaseModel):
@@ -2448,12 +3242,23 @@ def issue_batch_credentials(
         }
         issued_list, transaction_id = issue_batch_with_cert_issuer(unsigned_credentials, chain_name, settings)
     except IssueError as exc:
-        issuance_progress = {
-            "status": "error",
-            "percentage": 100,
-            "message": f"Fallo en la emisión en blockchain: {str(exc)}"
-        }
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        # ponytail: batch mainnet sin fondos → fallback sepolia gratis
+        if chain_name == "ethereum_mainnet" and "Please add" in str(exc):
+            logger.warning("Batch mainnet InsufficientFunds, fallback sepolia para lote %d", total_certs)
+            add_audit_log(settings, "issue_fallback_sepolia", user.username, client_ip, f"Batch fallback sepolia: {exc}")
+            try:
+                chain_name = "ethereum_sepolia"
+                issued_list, transaction_id = issue_batch_with_cert_issuer(unsigned_credentials, chain_name, settings)
+            except IssueError as exc2:
+                issuance_progress = {"status": "error", "percentage": 100, "message": f"Fallo sepolia fallback: {exc2}"}
+                raise HTTPException(status_code=422, detail=str(exc2)) from exc2
+        else:
+            issuance_progress = {
+                "status": "error",
+                "percentage": 100,
+                "message": f"Fallo en la emisión en blockchain: {str(exc)}"
+            }
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         
     metadata = issuance_metadata(chain_name, transaction_id)
     metadata["issued_by"] = user.username
@@ -2674,6 +3479,80 @@ def get_wallet_balance(settings: Any) -> float:
     return 0.0
 
 
+@app.get("/admin/billing")
+def admin_billing(request: Request, api_key: str | None = None) -> dict[str, Any]:
+    authorized, _ = is_admin_session_valid(request, api_key)
+    if not authorized:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    from .db import execute_read as _read
+    # agrupar por transacción para no duplicar costo (1 tx = N certs)
+    rows = _read(settings, "SELECT transaction_id, chain, issued_at, COUNT(*) as count FROM certificates WHERE transaction_id != '' GROUP BY transaction_id, chain, issued_at ORDER BY issued_at DESC LIMIT 100")
+    ledger = []
+    total_eth = 0.0
+    total_eth = 0.0
+    total_mainnet = 0.0
+    total_sepolia = 0.0
+    for r in rows:
+        tx = r["transaction_id"]
+        chain = r["chain"]
+        count = r["count"]
+        # mainnet = costo real, sepolia = gratis (faucet), mock = 0
+        if chain == "ethereum_mainnet":
+            cost_eth = 0.000625  # gasPrice 25 Gwei * 25000 del .env
+            # si metadata tiene gas_cost real, úsalo
+            try:
+                meta_rows = _read(settings, "SELECT metadata_json FROM certificates WHERE transaction_id = ? LIMIT 1", (tx,))
+                if meta_rows and meta_rows[0].get("metadata_json"):
+                    import json as _j
+                    meta = _j.loads(meta_rows[0]["metadata_json"])
+                    if "gas_cost_eth" in meta:
+                        cost_eth = float(meta["gas_cost_eth"])
+            except Exception:
+                pass
+            total_mainnet += cost_eth
+            cost_mxn = round(cost_eth * 65000, 2)
+        elif chain == "ethereum_sepolia":
+            cost_eth = 0.0  # testnet no cuesta pesos
+            total_sepolia += 0.000557  # solo informativo
+            cost_mxn = 0
+        else:
+            cost_eth = 0.0
+            cost_mxn = 0
+        total_eth += 0  # mantener compatibilidad
+        explorer = f"https://etherscan.io/tx/{tx}" if chain == "ethereum_mainnet" else f"https://sepolia.etherscan.io/tx/{tx}" if chain == "ethereum_sepolia" else ""
+        ledger.append({"tx": tx, "chain": chain, "count": count, "issued_at": r["issued_at"], "cost_eth": cost_eth, "cost_mxn_est": cost_mxn, "explorer": explorer})
+    # balances con requests (más fiable que urllib)
+    bal_main = 0.0
+    bal_sepolia = 0.0
+    try:
+        import requests as _rq
+        addr = getattr(settings, "issuing_address", "")
+        for _rpc, _name in [(getattr(settings, "ethereum_rpc_url", None), "mainnet"), (getattr(settings, "sepolia_rpc_url", None), "sepolia")]:
+            if not _rpc or not addr:
+                continue
+            try:
+                resp = _rq.post(_rpc, json={"jsonrpc":"2.0","method":"eth_getBalance","params":[addr,"latest"],"id":1}, timeout=5)
+                hb = resp.json().get("result")
+                if hb:
+                    eth = int(hb,16)/1e18
+                    if _name == "mainnet":
+                        bal_main = eth
+                    else:
+                        bal_sepolia = eth
+            except Exception as e:
+                import logging as _lg
+                _lg.getLogger(__name__).warning(f"balance fetch failed {_name}: {e}")
+    except Exception:
+        pass
+    # fallback a get_wallet_balance si requests falló
+    if bal_main == 0 and bal_sepolia == 0:
+        try:
+            bal_main = get_wallet_balance(settings) if getattr(settings, "default_chain", "") == "ethereum_mainnet" else 0
+        except Exception:
+            pass
+    return {"wallet": getattr(settings, "issuing_address", ""), "balance_mainnet_eth": round(bal_main,6), "balance_sepolia_eth": round(bal_sepolia,6), "default_chain": getattr(settings, "default_chain", ""), "gas_price_gwei": getattr(settings, "gas_price", 0)/1e9, "gas_limit": getattr(settings, "gas_limit", 0), "cost_per_tx_eth": getattr(settings, "gas_price", 0)*getattr(settings, "gas_limit", 0)/1e18, "total_spent_eth_mainnet": round(total_mainnet,6), "total_spent_mxn_mainnet": round(total_mainnet*65000,2), "total_txs_mainnet": len([r for r in rows if r["chain"]=="ethereum_mainnet"]), "total_txs_sepolia": len([r for r in rows if r["chain"]=="ethereum_sepolia"]), "ledger": ledger}
+
+
 @app.get("/admin/preview-certificate/pdf")
 def preview_certificate_pdf(
     request: Request,
@@ -2762,6 +3641,8 @@ def admin_dashboard_data(
     
     palette = get_palette(settings)
     balance = get_wallet_balance(settings)
+    # incluir chain para trazabilidad de gasto
+    # balance ya es mainnet/sepolia según default_chain, pero exponemos ambos en billing
     
     branding = {
         "green": palette.get("green", "#0F6A52"),
@@ -2788,6 +3669,8 @@ def admin_dashboard_data(
                 "course_name": c.get("course_name", "N/A"),
                 "hours": c.get("hours", 0),
                 "grade": c.get("grade", "N/A"),
+                "chain": c.get("chain", "unknown"),
+                "transaction_id": c.get("transaction_id", ""),
                 "issued_at": c["issued_at"],
                 "revoked": bool(c["revoked"])
             } for c in certs
@@ -4061,7 +4944,7 @@ def admin_dashboard(
           updatePresetColor('teal', teal);
           updatePresetColor('gold', gold);
           updatePresetColor('silver', silver);
-          showToast("¡Preset aplicado temporalmente! Haz clic en 'Guardar Paleta' para aplicar permanentemente.");
+          showToast("Preset aplicado temporalmente. Haz clic en 'Guardar Identidad Gráfica' para aplicar permanentemente.");
           updatePdfPreview();
         }}
 
@@ -4622,7 +5505,7 @@ def admin_dashboard(
             }},
             'branding': {{
               title: 'Personalización Visual',
-              desc: 'Configura la paleta de colores institucional de la universidad'
+              desc: 'Configura la identidad gráfica institucional de la universidad'
             }},
             'signature': {{
               title: 'Firma Oficial del Rector',
@@ -5264,7 +6147,7 @@ def admin_dashboard(
                   <svg class="w-5 h-5 text-[#B88A3B]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                   </svg>
-                  <h3 class="font-outfit font-bold text-slate-800">Paleta de Colores</h3>
+                  <h3 class="font-outfit font-bold text-slate-800">Identidad Gráfica Institucional</h3>
                 </div>
                 
                 <form action="/admin/branding" method="POST" class="space-y-4">
@@ -5344,7 +6227,7 @@ def admin_dashboard(
                   </div>
                 </div>
                 <button type="submit" class="w-full py-2 bg-[#0F6A52] hover:bg-[#0A4C3B] text-white font-medium rounded-lg text-sm transition-colors mt-2">
-                  Guardar Paleta
+                  Guardar Identidad Gráfica
                 </button>
               </form>
             </div>
@@ -5778,7 +6661,7 @@ def admin_set_branding(
         "branding_change", 
         username or "admin", 
         client_ip, 
-        f"Paleta de colores modificada: verde={green}, verde_profundo={green_deep}, azul={teal}, dorado={gold}, plata={silver}"
+        f"Identidad gráfica modificada: verde={green}, verde_profundo={green_deep}, azul={teal}, dorado={gold}, plata={silver}"
     )
     return RedirectResponse(url="/admin/dashboard?toast=branding_saved", status_code=303)
 

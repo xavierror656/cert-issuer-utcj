@@ -166,7 +166,7 @@ export function Dashboard() {
   // Tab Titles mapping
   const titleMap = {
     overview: { title: 'Panel de Control', desc: 'Gestión de microcredenciales verificables y branding institucional' },
-    branding: { title: 'Personalización Visual', desc: 'Configura la paleta de colores institucional de la universidad' },
+    branding: { title: 'Personalización Visual', desc: 'Configura la identidad gráfica institucional de la universidad' },
     signature: { title: 'Firma Oficial del Rector', desc: 'Gestiona la firma manuscrita estampada digitalmente en los documentos' },
     'api-keys': { title: 'Tokens de API', desc: 'Administra claves de acceso y permisos para emisores y auditores externos' },
     'audit-log': { title: 'Bitácora de Seguridad', desc: 'Historial de auditoría inmutable de todas las acciones administrativas' }

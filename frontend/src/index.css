@@ -1,6 +1,177 @@
 @import "tailwindcss";
 @plugin "daisyui";
 
+/* Google Fonts: Montserrat (Level 1), Plus Jakarta Sans/Gotham (Level 2), Inter (Level 3), Fira Code (Hashes) */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;600&display=swap');
+
+:root {
+  /* Colorimetría oficial UTP Modalidad Mixta & UTCJ 2026 */
+  --utp-green-lime: #93C01F;
+  --utp-teal: #3F9089;
+  --utp-pistachio: #D1DF8C;
+  --utp-green-deep: #114938;
+  --utp-green: #146049;
+  --utp-jade: #279371;
+  --utp-gold: #B88A3B;
+  --utp-silver: #8FA3AD;
+
+  /* Theme tokens */
+  --primary: #146049;
+  --primary-dark: #114938;
+  --primary-lime: #93C01F;
+  --secondary: #3F9089;
+  --accent: #B88A3B;
+  --accent-light: #D1DF8C;
+  --mist: #E8F1EE;
+  --graphite: #1F2937;
+  --bg: #0B1319;
+  --card-bg: rgba(17, 73, 56, 0.35);
+  --card-border: rgba(147, 192, 31, 0.3);
+  --text: #F3F4F6;
+  --text-muted: #9CA3AF;
+  --glow: 0 0 40px rgba(20, 96, 73, 0.4);
+  --pill-bg: linear-gradient(90deg, rgba(209, 223, 140, 0.15) 0%, rgba(63, 144, 137, 0.08) 100%);
+  --pill-border: rgba(147, 192, 31, 0.35);
+}
+
+[data-theme="light"] {
+  --bg: #F4F8F6;
+  --card-bg: #FFFFFF;
+  --card-border: rgba(20, 96, 73, 0.18);
+  --text: #111827;
+  --text-muted: #4B5563;
+  --glow: 0 10px 30px rgba(20, 96, 73, 0.1);
+  --pill-bg: linear-gradient(90deg, #FFFFFF 0%, #F0FDF4 100%);
+  --pill-border: rgba(147, 192, 31, 0.45);
+}
+
+/* Tipografía en 3 Niveles Oficiales */
+.font-montserrat {
+  font-family: 'Montserrat', sans-serif;
+}
+.font-gotham {
+  font-family: 'Plus Jakarta Sans', 'Outfit', 'Montserrat', sans-serif;
+}
+.font-body {
+  font-family: 'Inter', 'Arial', 'Verdana', sans-serif;
+}
+.font-mono {
+  font-family: 'Fira Code', monospace;
+}
+
+/* 3D Pill Cards Style (Reference: Colorimetría y Tipografía Slide) */
+.pill-card-3d {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: var(--pill-bg);
+  border: 1.5px solid var(--pill-border);
+  border-radius: 9999px;
+  padding: 10px 24px 10px 10px;
+  box-shadow: 0 6px 20px -4px rgba(17, 73, 56, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pill-card-3d:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -4px rgba(147, 192, 31, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border-color: var(--utp-green-lime);
+}
+
+.circle-badge-3d {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  color: #114938;
+  background: linear-gradient(135deg, #D1DF8C 0%, #93C01F 60%, #279371 100%);
+  box-shadow: 0 4px 12px rgba(147, 192, 31, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.8), inset 0 -2px 4px rgba(17, 73, 56, 0.4);
+  border: 2px solid #FFFFFF;
+  flex-shrink: 0;
+}
+
+.circle-badge-3d.teal {
+  background: linear-gradient(135deg, #D1DF8C 0%, #3F9089 60%, #114938 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(63, 144, 137, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.6), inset 0 -2px 4px rgba(17, 73, 56, 0.6);
+}
+
+.circle-badge-3d.dark {
+  background: linear-gradient(135deg, #279371 0%, #146049 60%, #114938 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(20, 96, 73, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pill-end-aa {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: #279371;
+  background: rgba(209, 223, 140, 0.25);
+  border: 1.5px solid rgba(147, 192, 31, 0.4);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Color Swatches Palette Component */
+.swatch-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px 6px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.swatch-chip:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.swatch-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* Dual-Tone Footer */
+.footer-dual-tone {
+  position: relative;
+  width: 100%;
+}
+
+.footer-gold-stripe {
+  height: 8px;
+  background: linear-gradient(90deg, #B88A3B 0%, #C59262 50%, #B88A3B 100%);
+  width: 100%;
+}
+
+.footer-green-bar {
+  background: linear-gradient(90deg, #114938 0%, #146049 60%, #279371 100%);
+  color: #FFFFFF;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 /* Custom scrollbar and premium utility classes */
 ::-webkit-scrollbar {
   width: 6px;
@@ -10,9 +181,9 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.3);
+  background: rgba(147, 192, 31, 0.35);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.5);
+  background: rgba(147, 192, 31, 0.6);
 }

@@ -28,7 +28,8 @@ class TestUTCJMicrocredentials(unittest.TestCase):
 
     def test_palette_defaults_and_override(self):
         palette = get_palette(self.settings)
-        self.assertEqual(palette["green"], "#0F6A52")
+        self.assertEqual(palette["green"], "#146049")
+        self.assertEqual(palette["green_lime"], "#93C01F")
         self.assertEqual(palette["gold"], "#B88A3B")
 
         # Test dynamic override in SQLite DB
@@ -72,7 +73,7 @@ class TestUTCJMicrocredentials(unittest.TestCase):
         self.assertIsInstance(svg_str, str)
         self.assertIn("<svg", svg_str)
         self.assertIn("María José", svg_str)
-        self.assertIn("Dr. Óscar F. Ibáñez Hernández", svg_str)
+        self.assertIn("Dr. Óscar Fidencio Ibáñez Hernández", svg_str)
 
     def test_atomic_file_write_and_storage(self):
         test_file = self.base_path / "test_atomic.txt"

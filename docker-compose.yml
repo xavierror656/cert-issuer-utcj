@@ -29,6 +29,8 @@ services:
     volumes:
       - ./data/utcj_microcredentials:/app/data/utcj_microcredentials
       - ./assets:/app/assets
+      - ./src:/app/src
+      - ./frontend/dist:/app/frontend/dist
       - ./examples:/app/examples
       - /home/ubuntu/secrets:/home/ubuntu/secrets:ro
 

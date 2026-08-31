@@ -2,10 +2,66 @@
 defined('MOODLE_INTERNAL') || die();
 
 /**
+ * Helper: get API config once
+ */
+function certsigner_get_api_config() {
+    $url = get_config('local_certsigner', 'api_base_url');
+    if (empty($url)) {
+        $url = 'https://utcjmicro.javierflores.software';
+    }
+    $key = get_config('local_certsigner', 'api_key');
+    return [rtrim($url, '/'), $key];
+}
+
+/**
+ * Helper: single curl wrapper (DRY for issue.php 4x duplication)
+ * @return array [httpcode, body, decoded]
+ */
+function certsigner_api_call($path, $payload = null, $method = 'POST', $timeout = 30) {
+    list($apiurl, $apikey) = certsigner_get_api_config();
+    if (empty($apikey)) {
+        return [0, '', null, 'API Key no configurada. Ve a Administración > Plugins > CertSigner.'];
+    }
+    $ch = curl_init($apiurl . $path);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    $headers = ['Content-Type: application/json', 'X-API-Key: ' . $apikey];
+    if ($payload !== null) {
+        if ($method === 'POST') {
+            curl_setopt($ch, CURLOPT_POST, true);
+        } else {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        }
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    } else if ($method !== 'GET') {
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        if ($method === 'POST') {
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, '{}');
+        }
+    }
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    $resp = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if ($resp === false && $err) {
+        return [$code, $err, null, $err];
+    }
+    $decoded = json_decode($resp, true);
+    $detail = null;
+    if ($decoded && isset($decoded['detail'])) {
+        $detail = $decoded['detail'];
+    }
+    return [$code, $resp, $decoded, $detail];
+}
+
+/**
  * Extend navigation in course menu for Moodle 4.x
  */
 function local_certsigner_extend_navigation_course($navigation, $course, $context) {
-    if (has_capability('moodle/course:update', $context)) {
+    if (has_capability('local/certsigner:issue', $context)) {
         $url = new moodle_url('/local/certsigner/issue.php', array('id' => $course->id));
         $node = navigation_node::create(
             get_string('pluginname', 'local_certsigner'),
@@ -28,7 +84,7 @@ function local_certsigner_myprofile_navigation(core_user\output\myprofile\tree $
         $node = new core_user\output\myprofile\node(
             'miscellaneous',
             'local_certsigner_mycerts',
-            '🎓 Mis Microcredenciales UTCJ',
+            'Mis Microcredenciales UTCJ',
             null,
             $url
         );
@@ -43,7 +99,7 @@ function local_certsigner_extend_navigation_user($navigation, $user, $context) {
     if (isloggedin() && !isguestuser()) {
         $url = new moodle_url('/local/certsigner/mycertificates.php');
         $navigation->add(
-            '🎓 Mis Microcredenciales UTCJ',
+            'Mis Microcredenciales UTCJ',
             $url,
             navigation_node::TYPE_SETTING,
             null,
@@ -53,20 +109,76 @@ function local_certsigner_extend_navigation_user($navigation, $user, $context) {
 }
 
 /**
- * Display Course Banner in Moodle
+ * Ponytail: emite badge vanilla de Moodle + blockchain en 1 paso.
+ * Reusa tablas mdl_badge / mdl_badge_issued, aparece en badges/mybadges.php sin UI nueva.
  */
-function local_certsigner_before_standard_top_of_body_html() {
-    global $PAGE, $COURSE;
-    if ($COURSE && $COURSE->id > 1 && $PAGE->pagelayout === 'incourse') {
-        echo '<div style="background:linear-gradient(135deg, #0F6A52, #0F3E4A); color:white; padding:12px 20px; border-radius:12px; margin:12px 0 20px 0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; box-shadow:0 4px 14px rgba(15,106,82,0.18); font-family:sans-serif;">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <span style="font-size:22px;">🎓</span>
-                <div>
-                    <strong style="font-size:13px; font-weight:700; letter-spacing:0.3px;">Este curso otorga Microcredencial Verificable UTCJ</strong>
-                    <p style="font-size:11px; margin:2px 0 0 0; opacity:0.9;">Acreditación oficial respaldada e infalsificable anclada en la Blockchain de Ethereum.</p>
-                </div>
-            </div>
-            <a href="/local/certsigner/mycertificates.php" style="background:#B88A3B; color:white; text-decoration:none; padding:7px 16px; border-radius:8px; font-weight:bold; font-size:12px; box-shadow:0 2px 8px rgba(184,138,59,0.3);">Mis Credenciales →</a>
-        </div>';
+function certsigner_issue_moodle_badge($courseid, $userid, $certificateid, $coursename) {
+    global $DB, $USER;
+    if (! $DB->get_manager()->table_exists('badge')) {
+        return; // badges deshabilitados
+    }
+    try {
+        // 1. Busca badge template por curso.
+        $badge = $DB->get_record('badge', ['courseid' => $courseid, 'name' => $coursename . ' - Microcredencial UTCJ']);
+        if (!$badge) {
+            $now = time();
+            $badge = (object)[
+                'name' => $coursename . ' - Microcredencial UTCJ',
+                'description' => 'Microcredencial verificable UTCJ anclada en Blockchain Ethereum. ID: ' . $certificateid,
+                'timecreated' => $now,
+                'timemodified' => $now,
+                'usercreated' => $USER->id ?? 2,
+                'usermodified' => $USER->id ?? 2,
+                'issuername' => get_config('local_certsigner', 'issuer_name_default') ?: 'Universidad Tecnologica de Ciudad Juarez',
+                'issuerurl' => get_config('local_certsigner', 'issuer_id_default') ?: 'https://www.utcj.edu.mx',
+                'issuercontact' => 'microcredenciales@utcj.edu.mx',
+                'expiredate' => null,
+                'expireperiod' => null,
+                'type' => 1, // BADGE_TYPE_COURSE
+                'courseid' => $courseid,
+                'message' => 'Has obtenido la microcredencial verificable: ' . $coursename . '. Verifícala en https://utcjmicro.javierflores.software/render/' . $certificateid,
+                'messagesubject' => 'Microcredencial UTCJ: ' . $coursename,
+                'attachment' => 1,
+                'notification' => 0,
+                'status' => 1, // BADGE_STATUS_ACTIVE
+                'nextcron' => null,
+                'version' => '',
+                'language' => 'es',
+                'imageauthorname' => 'UTCJ',
+                'imageauthoremail' => 'microcredenciales@utcj.edu.mx',
+                'imageauthorurl' => 'https://www.utcj.edu.mx',
+                'imagecaption' => $coursename,
+            ];
+            $badge->id = $DB->insert_record('badge', $badge);
+            // Criterio manual (awarded by plugin).
+            $DB->insert_record('badge_criteria', (object)[
+                'badgeid' => $badge->id,
+                'criteriatype' => 1, // overall
+                'method' => 1,
+            ]);
+            // Inserta criterio manual vacío para que badge sea otorgable.
+            $DB->insert_record('badge_criteria_param', (object)[
+                'critid' => $DB->get_field('badge_criteria', 'id', ['badgeid' => $badge->id]),
+                'name' => 'manual',
+                'value' => '1',
+            ]);
+        }
+        // 2. Evita duplicado.
+        if ($DB->record_exists('badge_issued', ['badgeid' => $badge->id, 'userid' => $userid])) {
+            return;
+        }
+        // 3. Emite badge vanilla.
+        $hash = hash('sha256', $certificateid . '|' . $userid . '|' . $badge->id);
+        $DB->insert_record('badge_issued', (object)[
+            'badgeid' => $badge->id,
+            'userid' => $userid,
+            'uniquehash' => $hash,
+            'dateissued' => time(),
+            'dateexpire' => null,
+            'visible' => 1,
+            'issuernotified' => null,
+        ]);
+    } catch (Exception $e) {
+        debugging('certsigner badge emit failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
     }
 }

@@ -1,5 +1,6 @@
 <?php
 require_once(__DIR__ . '/../../config.php');
+require_once(__DIR__ . '/lib.php');
 require_login();
 
 $context = context_system::instance();
@@ -8,47 +9,38 @@ $PAGE->set_context($context);
 $PAGE->set_title('Mis Microcredenciales UTCJ');
 $PAGE->set_heading('Mis Microcredenciales UTCJ');
 
-$apiurl = get_config('local_certsigner', 'api_base_url');
-if (empty($apiurl)) {
-    $apiurl = 'https://utcjmicro.javierflores.software';
-}
-$apiurl = rtrim($apiurl, '/');
+list($apiurl, $apikey) = certsigner_get_api_config();
 
-// Fetch student's issued certificates
-$my_certs = $DB->get_records('certsigner_issued', array('userid' => $USER->id), 'timeissued DESC');
+// Only active certs.
+$my_certs = $DB->get_records('certsigner_issued', array('userid' => $USER->id, 'status' => 'active'), 'timeissued DESC');
+if (empty($my_certs)) {
+    // Fallback for legacy rows without status.
+    $all = $DB->get_records('certsigner_issued', array('userid' => $USER->id), 'timeissued DESC');
+    $my_certs = array_filter($all, fn($c) => !isset($c->status) || $c->status === 'active');
+}
 
 echo $OUTPUT->header();
-echo '<div style="max-width:980px; margin:0 auto; padding:10px;">';
-echo '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">';
-echo '<div>';
-echo '<h2 style="color:#0F6A52; font-weight:bold; margin:0;">🎓 Mis Microcredenciales Verificables</h2>';
-echo '<p style="color:#6c757d; font-size:14px; margin:4px 0 0 0;">Consulta, comparte en LinkedIn, exporta Open Badges v3 y descarga tus certificados anclados en la Blockchain por la UTCJ.</p>';
-echo '</div>';
-echo '<span style="background:rgba(15,106,82,0.1); border:1px solid rgba(15,106,82,0.2); color:#0F6A52; font-weight:bold; font-size:12px; padding:6px 14px; border-radius:20px;">Ethereum Mainnet Verified</span>';
+echo '<div class="container" style="max-width:980px;">';
+echo '<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">';
+echo '<div><h2 class="text-success fw-bold m-0">Mis Microcredenciales Verificables</h2><p class="text-muted small m-0">Consulta, comparte en LinkedIn y descarga tus certificados Blockchain UTCJ.</p></div>';
+echo '<span class="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2">Blockchain Verified</span>';
 echo '</div>';
 
 if (empty($my_certs)) {
-    echo '<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:16px; padding:40px; text-align:center; color:#6c757d;">';
-    echo '<span style="font-size:48px;">📜</span>';
-    echo '<h4 style="margin-top:14px; color:#495057; font-weight:bold;">Aún no tienes microcredenciales emitidas</h4>';
-    echo '<p style="font-size:13px; margin:0;">Cuando completes tus cursos y la UTCJ emita tu certificado, aparecerán en esta sección automáticamente.</p>';
-    echo '</div>';
+    echo '<div class="card text-center py-5"><div class="card-body"><h4 class="fw-bold mt-2">Aún no tienes microcredenciales</h4><p class="text-muted small">Aparecerán aquí cuando la UTCJ emita tu certificado.</p><a href="'.$CFG->wwwroot.'/course/index.php" class="btn btn-primary btn-sm">Ver cursos disponibles</a></div></div>';
 } else {
-    echo '<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap:20px;">';
+    echo '<div class="row g-3">';
     foreach ($my_certs as $c) {
         $course = $DB->get_record('course', array('id' => $c->courseid));
         $coursename = $course ? $course->fullname : 'Curso UTCJ';
         $issued_date = date('d/m/Y', $c->timeissued);
         $issue_year = date('Y', $c->timeissued);
         $issue_month = date('m', $c->timeissued);
-        
+
         $cert_url = !empty($c->certificateurl) ? $c->certificateurl : ($apiurl . '/render/' . $c->certificateid);
         $pdf_url = !empty($c->pdfurl) ? $c->pdfurl : ($apiurl . '/certificate/' . $c->certificateid . '/pdf');
         $openbadge_url = $apiurl . '/certificate/' . $c->certificateid . '/openbadge';
-        $wallet_pass_url = $apiurl . '/certificate/' . $c->certificateid . '/wallet-pass';
-        $qr_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' . urlencode($cert_url);
 
-        // LinkedIn Add to Profile URL
         $linkedin_url = 'https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME'
             . '&name=' . urlencode($coursename)
             . '&organizationName=' . urlencode('Universidad Tecnologica de Ciudad Juarez')
@@ -57,36 +49,35 @@ if (empty($my_certs)) {
             . '&certUrl=' . urlencode($cert_url)
             . '&certId=' . urlencode($c->certificateid);
 
-        echo '<div style="background:white; border:1px solid #e2e8f0; border-radius:16px; padding:22px; box-shadow:0 4px 14px rgba(0,0,0,0.06); display:flex; flex-direction:column; justify-content:space-between; position:relative; overflow:hidden;">';
-        
-        echo '<div>';
-        echo '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">';
-        echo '<div>';
-        echo '<span style="background:rgba(15,106,82,0.1); color:#0F6A52; font-size:10px; font-weight:bold; padding:3px 8px; border-radius:12px; text-transform:uppercase;">Blockchain Verified</span>';
-        echo '<h4 style="color:#0F3E4A; font-weight:bold; font-size:16px; margin:8px 0 4px 0; line-height:1.3;">' . htmlspecialchars($coursename) . '</h4>';
-        echo '<p style="color:#64748b; font-size:11px; margin:0;">Emisión oficial: UTCJ • ' . $issued_date . '</p>';
-        echo '</div>';
-        echo '<img src="' . $qr_url . '" alt="QR Verificación" style="width:54px; height:54px; border-radius:6px; border:1px solid #e2e8f0; padding:2px; background:white;">';
-        echo '</div>';
-        echo '</div>';
-        
-        echo '<div style="display:flex; flex-direction:column; gap:8px; margin-top:16px; border-top:1px solid #f1f5f9; padding-top:14px;">';
-        echo '<a href="' . $linkedin_url . '" target="_blank" style="background:#0077b5; color:white; text-align:center; padding:9px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; gap:6px;">';
-        echo '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.25V10.9H6.46M7.86 6.74a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24z"/></svg>';
-        echo 'Añadir a mi perfil de LinkedIn</a>';
-        
-        echo '<div style="display:flex; gap:8px;">';
-        echo '<a href="' . $cert_url . '" target="_blank" style="flex:1; background:#0F6A52; color:white; text-align:center; padding:8px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:12px;">📄 Ver Certificado</a>';
-        echo '<a href="' . $pdf_url . '" target="_blank" style="flex:1; background:#0F3E4A; color:white; text-align:center; padding:8px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:12px;">📥 PDF Oficial</a>';
-        echo '</div>';
+        $constancia_url = $apiurl . '/certificate/' . $c->certificateid . '/constancia-pdf';
 
-        echo '<div style="display:flex; gap:8px;">';
-        echo '<a href="' . $openbadge_url . '" target="_blank" style="flex:1; background:#334155; color:white; text-align:center; padding:6px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:11px;">🏅 Open Badge v3</a>';
-        echo '<a href="' . $wallet_pass_url . '" target="_blank" style="flex:1; background:#B88A3B; color:white; text-align:center; padding:6px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:11px;">🪪 Cartera Digital Pass</a>';
+        echo '<div class="col-md-6 col-lg-4">';
+        echo '<div class="card h-100 shadow-sm">';
+        echo '<div class="card-body d-flex flex-column">';
+        echo '<div class="d-flex justify-content-between align-items-start mb-2">';
+        echo '<span class="badge bg-success bg-opacity-10 text-success small text-uppercase">Blockchain Verified</span>';
+        // Lazy QR: use API if available, fallback to external only if needed - ponytail: external QR if local not available
+        echo '<img src="'.$apiurl.'/qr?data='.urlencode($cert_url).'" onerror="this.src=\'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data='.urlencode($cert_url).'\'" alt="QR" style="width:54px;height:54px" class="border rounded p-1">';
         echo '</div>';
-
+        echo '<h6 class="fw-bold mb-1">'.s($coursename).'</h6>';
+        echo '<p class="text-muted small mb-3">UTCJ • '.$issued_date.'</p>';
+        echo '<div class="mt-auto d-flex flex-column gap-2">';
+        echo '<a href="'.$linkedin_url.'" target="_blank" class="btn btn-sm text-white" style="background:#0077b5">Añadir a LinkedIn</a>';
+        echo '<div class="d-flex gap-2">';
+        echo '<a href="'.s($cert_url).'" target="_blank" class="btn btn-sm btn-success flex-fill">Ver Diploma</a>';
+        echo '<a href="'.s($pdf_url).'" target="_blank" class="btn btn-sm btn-dark flex-fill">Descargar PDF</a>';
         echo '</div>';
-        
+        echo '<div class="btn-group">';
+        echo '<button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown">Opciones / Constancia</button>';
+        echo '<ul class="dropdown-menu w-100">';
+        echo '<li><a class="dropdown-item" href="'.s($constancia_url).'" target="_blank">Constancia Oficial (PDF)</a></li>';
+        echo '<li><a class="dropdown-item" href="#" onclick="navigator.clipboard.writeText(\''.s($cert_url).'\');alert(\'Link copiado al portapapeles\');return false;">Copiar link verificable</a></li>';
+        echo '<li><a class="dropdown-item" href="'.s($openbadge_url).'" target="_blank">Open Badge v3</a></li>';
+        echo '<li><a class="dropdown-item" href="'.s($cert_url).'" target="_blank">Verificación Blockchain</a></li>';
+        echo '</ul>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div></div>';
         echo '</div>';
     }
     echo '</div>';
