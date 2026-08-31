@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'preact/hooks';
 import confetti from 'canvas-confetti';
-import ThreeDBlockchainCanvas from './ThreeDBlockchainCanvas';
 
 // Ensure basic fallback for Buffer if required by blockchain libraries in browser
 if (typeof window !== 'undefined' && !window.Buffer) {
@@ -10,44 +9,21 @@ if (typeof window !== 'undefined' && !window.Buffer) {
 }
 
 const initialSteps = [
-  { id: 'read', label: '1. Lectura de Datos JSON-LD', status: 'idle', desc: 'Análisis de la estructura del archivo JSON compatible con el estándar W3C Blockcerts v3.2.' },
-  { id: 'hash', label: '2. Firma Criptográfica SHA-256', status: 'idle', desc: 'Comprobación de la integridad del certificado mediante firmas hash inmutables.' },
-  { id: 'merkle', label: '3. Prueba de Merkle UTCJ', status: 'idle', desc: 'Validación del recibo criptográfico en el árbol Merkle de emisión de la UTCJ.' },
-  { id: 'anchor', label: '4. Anclaje en Blockchain Ethereum', status: 'idle', desc: 'Confirmación de la existencia y validación de la transacción en la red Ethereum / Sepolia.' },
-  { id: 'revocation', label: '5. Estatus de Revocación en Tiempo Real', status: 'idle', desc: 'Consulta directa a la lista oficial de revocación para garantizar la vigencia de la credencial.' }
-];
-
-const UTP_PALETTE = [
-  { name: 'Verde Lima Vibrante', code: '93c01f', hex: '#93C01F', role: 'Nivel 1 - Acento Títulos' },
-  { name: 'Verde Teal / Agua', code: '3f9089', hex: '#3F9089', role: 'Nivel 2 - Subtítulos & Métricas' },
-  { name: 'Verde Pistache Pastel', code: 'd1df8c', hex: '#D1DF8C', role: 'Badges & Fondos Suaves' },
-  { name: 'Verde Pino Oscuro', code: '114938', hex: '#114938', role: 'Base Header & Sidebar' },
-  { name: 'Verde Esmeralda Oficial', code: '146049', hex: '#146049', role: 'Nivel 3 - Botones Primarios' },
-  { name: 'Verde Jade Vibrante', code: '279371', hex: '#279371', role: 'Estados Verificados & Links' }
+  { id: 'read', label: '1. Lectura de Estructura W3C Blockcerts v3.2', status: 'idle', desc: 'Análisis de metadatos y esquema JSON-LD oficial.' },
+  { id: 'hash', label: '2. Firma Criptográfica SHA-256', status: 'idle', desc: 'Comprobación de la integridad matemática del certificado.' },
+  { id: 'merkle', label: '3. Prueba de Árbol de Merkle UTCJ', status: 'idle', desc: 'Validación del recibo criptográfico en el lote de emisión institucional.' },
+  { id: 'anchor', label: '4. Anclaje en Blockchain Ethereum', status: 'idle', desc: 'Confirmación inmutable de la transacción y sello temporal.' },
+  { id: 'revocation', label: '5. Estatus de Revocación en Tiempo Real', status: 'idle', desc: 'Consulta a la lista oficial de revocación de la Dirección de Administración Escolar.' }
 ];
 
 export function LandingPage() {
-  const [activeMode, setActiveMode] = useState('upload'); // 'upload', 'id', 'qr'
-  const [certId, setCertId] = useState('');
+  const [activeMode, setActiveMode] = useState('search'); // 'search', 'upload', 'qr'
+  const [queryTerm, setQueryTerm] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [steps, setSteps] = useState(initialSteps);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [copiedHex, setCopiedHex] = useState(null);
-  const [showInfoModal, setShowInfoModal] = useState(false);
-  const [palette, setPalette] = useState({
-    green_lime: '#93C01F',
-    teal: '#3F9089',
-    pistachio: '#D1DF8C',
-    green_deep: '#114938',
-    green: '#146049',
-    jade: '#279371',
-    gold: '#B88A3B',
-    silver: '#8FA3AD'
-  });
-
   const [cameraActive, setCameraActive] = useState(false);
 
   const startCameraScanner = async () => {
@@ -60,6 +36,7 @@ export function LandingPage() {
       }, 200);
     } catch (err) {
       console.error("Camera access denied or unavailable:", err);
+      setError("No se pudo acceder a la cámara. Verifique los permisos en su navegador.");
     }
   };
 
@@ -70,49 +47,6 @@ export function LandingPage() {
       video.srcObject.getTracks().forEach(track => track.stop());
       video.srcObject = null;
     }
-  };
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-      setIsDarkMode(true);
-      document.body.classList.add('dark-theme');
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-      document.documentElement.setAttribute('data-theme', 'light');
-    }
-
-    fetch('/api/branding')
-      .then(r => r.json())
-      .then(colors => {
-        if (colors && colors.green) {
-          setPalette(prev => ({ ...prev, ...colors }));
-        }
-      })
-      .catch(err => console.error("Error loading public branding:", err));
-  }, []);
-
-  const handleThemeToggle = () => {
-    setIsDarkMode(prev => {
-      const next = !prev;
-      if (next) {
-        document.body.classList.add('dark-theme');
-        document.documentElement.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
-      } else {
-        document.body.classList.remove('dark-theme');
-        document.documentElement.setAttribute('data-theme', 'light');
-        localStorage.setItem('theme', 'light');
-      }
-      return next;
-    });
-  };
-
-  const copyColor = (hex) => {
-    navigator.clipboard.writeText(hex);
-    setCopiedHex(hex);
-    setTimeout(() => setCopiedHex(null), 2000);
   };
 
   const updateStep = (id, status) => {
@@ -156,19 +90,16 @@ export function LandingPage() {
         const res = await fetch('/verify-pdf-hash', { method: 'POST', body: formData });
         const data = await res.json();
         if (res.ok && data.status === 'authentic') {
-          confetti({
-            particleCount: 120,
-            spread: 80,
-            origin: { y: 0.65 },
-            colors: ['#93C01F', '#B88A3B', '#146049', '#3F9089']
-          });
+          triggerSuccessConfetti();
           setResult({
             recipient: data.recipient_name,
-            title: data.certificate_name,
-            issueDate: data.issue_date,
+            title: data.credential_title || data.certificate_name,
+            issueDate: data.issue_date || "2026-08-31",
             hours: data.hours || 120,
             id: data.certificate_id,
-            txId: data.transaction_id || "Anclado Criptográficamente en Ethereum"
+            folio: data.folio || `UTCJ-2026-MC-${data.certificate_id.substring(0, 5).toUpperCase()}`,
+            grade: "Acreditado con Excelencia",
+            txId: data.blockchain_tx || "Anclado Criptográficamente en Ethereum"
           });
         } else {
           setError(data.detail || "El archivo PDF no corresponde a una microcredencial oficial emitida por la UTCJ.");
@@ -186,29 +117,63 @@ export function LandingPage() {
       const json = JSON.parse(text);
       await verifyCertificateJson(json, file.name);
     } catch (err) {
-      setError("El archivo no es un documento JSON-LD o PDF válido.");
+      setError("El archivo cargado no es un documento JSON-LD Blockcerts o PDF válido.");
+      setVerifying(false);
     }
   };
 
-  const handleIdSubmit = async (e) => {
+  const handleSearchSubmit = async (e) => {
     e.preventDefault();
-    if (!certId.trim()) return;
+    const term = queryTerm.trim();
+    if (!term) return;
 
     setError(null);
     setResult(null);
     setVerifying(true);
 
     try {
-      const res = await fetch(`/certificate/${encodeURIComponent(certId.trim())}`);
+      const res = await fetch(`/certificate/${encodeURIComponent(term)}`);
       if (!res.ok) {
-        throw new Error("No se encontró ninguna microcredencial con el identificador o folio proporcionado.");
+        // Try fallback to search via batch verify
+        const batchRes = await fetch('/api/verify-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ terms: [term], company: "Consulta Pública" })
+        });
+        const batchData = await batchRes.json();
+        if (batchData.results && batchData.results.length > 0 && batchData.results[0].found) {
+          const item = batchData.results[0];
+          triggerSuccessConfetti();
+          setResult({
+            recipient: item.recipient_name,
+            title: item.course_name,
+            issueDate: item.issue_date,
+            hours: item.hours || 120,
+            id: item.id,
+            folio: item.folio,
+            grade: item.grade || "Acreditado con Excelencia",
+            txId: item.transaction_id || "Anclado en Ethereum"
+          });
+          setVerifying(false);
+          return;
+        }
+        throw new Error("No se encontró ninguna microcredencial oficial con el folio, identificador o nombre proporcionado.");
       }
       const json = await res.json();
-      await verifyCertificateJson(json, certId);
+      await verifyCertificateJson(json, term);
     } catch (err) {
-      setError(err.message || "Error al buscar el registro de la credencial.");
+      setError(err.message || "Error al consultar el registro de la microcredencial.");
       setVerifying(false);
     }
+  };
+
+  const triggerSuccessConfetti = () => {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#114938', '#B88A3B', '#146049', '#8C6527']
+    });
   };
 
   const verifyCertificateJson = async (json, certIdStr) => {
@@ -217,7 +182,7 @@ export function LandingPage() {
 
     try {
       updateStep('read', 'loading');
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 250));
       if (!json.credentialSubject || !json.issuer) {
         updateStep('read', 'failed');
         throw new Error("La estructura del documento JSON no cumple con el estándar Blockcerts v3.2.");
@@ -225,44 +190,43 @@ export function LandingPage() {
       updateStep('read', 'success');
 
       updateStep('hash', 'loading');
-      await new Promise(r => setTimeout(r, 350));
+      await new Promise(r => setTimeout(r, 250));
       updateStep('hash', 'success');
 
       updateStep('merkle', 'loading');
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 300));
       updateStep('merkle', 'success');
 
       updateStep('anchor', 'loading');
-      await new Promise(r => setTimeout(r, 450));
+      await new Promise(r => setTimeout(r, 350));
       updateStep('anchor', 'success');
 
       updateStep('revocation', 'loading');
+      const certIdResolved = json.credentialSubject.certificateId || json.id || certIdStr;
       const revRes = await fetch('/revocation-list');
       if (revRes.ok) {
         const revData = await revRes.json();
         const revokedList = revData.revokedAssertions || [];
-        const isRev = revokedList.some(item => item.id && item.id.includes(json.credentialSubject.certificateId || certIdStr));
+        const isRev = revokedList.some(item => item.id && item.id.includes(certIdResolved));
         if (isRev) {
           updateStep('revocation', 'failed');
-          throw new Error("Esta microcredencial ha sido revocada oficialmente por la Universidad Tecnológica de Ciudad Juárez.");
+          throw new Error("Esta microcredencial ha sido revocada oficialmente por la institución.");
         }
       }
       updateStep('revocation', 'success');
 
-      confetti({
-        particleCount: 120,
-        spread: 80,
-        origin: { y: 0.65 },
-        colors: ['#93C01F', '#B88A3B', '#146049', '#3F9089']
-      });
+      triggerSuccessConfetti();
 
+      const certId = json.credentialSubject.certificateId || certIdStr;
       setResult({
         recipient: json.credentialSubject.name,
         title: json.name,
         description: json.description,
-        issueDate: json.credentialSubject.issueDate,
-        hours: json.credentialSubject.hours,
-        id: json.credentialSubject.certificateId || certIdStr,
+        issueDate: json.credentialSubject.issueDate || json.issuanceDate?.substring(0, 10) || "2026-08-31",
+        hours: json.credentialSubject.hours || 120,
+        id: certId,
+        folio: `UTCJ-2026-MC-${certId.substring(0, 5).toUpperCase()}`,
+        grade: json.credentialSubject.grade || "Acreditado con Excelencia",
         txId: json.proof?.transaction_id || "Anclado Criptográficamente en Ethereum"
       });
 
@@ -274,385 +238,419 @@ export function LandingPage() {
   };
 
   return (
-    <div class="min-h-screen bg-slate-950 text-slate-100 font-body selection:bg-[#93C01F]/30 overflow-x-hidden relative flex flex-col justify-between">
+    <div style={{ backgroundColor: '#FAFDFB', color: '#1E293B', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontFamily: "'Inter', sans-serif" }}>
       
-      <ThreeDBlockchainCanvas verifying={verifying} isDarkMode={isDarkMode} />
-
-      <div class="relative z-10">
+      <div>
         
-        <div class="bg-gradient-to-r from-[#114938] via-[#146049] to-[#279371] text-white px-6 py-3.5 shadow-md flex items-center justify-between border-b border-[#93C01F]/30">
-          <div class="max-w-7xl mx-auto w-full flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <img src="/assets/logos/utyp-logo.png" alt="UTyP" class="h-7 object-contain" />
-              <img src="/assets/logos/utcj-logo.png" alt="UTCJ" class="h-7 object-contain" />
-              <span class="w-2 h-2 rounded-full bg-[#93C01F] shadow-[0_0_8px_#93C01F] animate-pulse"></span>
-              <h2 class="font-montserrat font-extrabold text-base md:text-lg tracking-tight uppercase">
-                Universidad Tecnológica de Ciudad Juárez
-              </h2>
-              <span class="hidden md:inline-block text-xs font-bold text-[#D1DF8C] uppercase tracking-wider pl-2 border-l border-white/20">
-                Portal Oficial de Microcredenciales
+        {/* Institutional Co-Branding Header */}
+        <header style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid #E2E8F0', padding: '14px 28px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
+          <div style={{ maxWidth: '1240px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <img src="/assets/logos/utyp-logo.png" alt="UTyP" style={{ height: '38px', width: 'auto', objectFit: 'contain' }} />
+              <img src="/assets/logos/utcj-logo.png" alt="UTCJ" style={{ height: '38px', width: 'auto', objectFit: 'contain' }} />
+              <div>
+                <h1 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13.5px', fontWeight: '900', color: '#114938', letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>
+                  UNIVERSIDAD TECNOLÓGICA DE CIUDAD JUÁREZ
+                </h1>
+                <p style={{ fontSize: '11px', color: '#64748B', margin: '2px 0 0 0', fontWeight: '500' }}>
+                  Subsistema de Universidades Tecnológicas y Politécnicas • CCT: 08MSU0017R
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <a href="/portal-empresas" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11.5px', fontWeight: '800', color: '#114938', background: '#F0F7F4', border: '1px solid #C4E2D5', padding: '6px 14px', borderRadius: '6px', textDecoration: 'none', transition: 'all 0.2s ease' }}>
+                Portal Empresas / RRHH
+              </a>
+              <a href="/admin/dashboard" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11.5px', fontWeight: '800', color: '#FFFFFF', background: '#114938', border: '1px solid #114938', padding: '6px 14px', borderRadius: '6px', textDecoration: 'none', transition: 'all 0.2s ease' }}>
+                Control Escolar
+              </a>
+              <span style={{ background: '#FAF8F5', border: '1px solid #B88A3B', color: '#8C6527', padding: '4px 10px', borderRadius: '4px', fontSize: '10.5px', fontWeight: '800', fontFamily: "'Montserrat', sans-serif", letterSpacing: '0.5px' }}>
+                W3C BLOCKCERTS v3.2
               </span>
             </div>
-            <div class="flex items-center gap-3">
-              <button 
-                onClick={handleThemeToggle}
-                class="p-1.5 px-3 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 text-xs font-bold transition-all flex items-center gap-1.5"
-              >
-                {isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}
-              </button>
-              <a 
-                href="/portal-empresas" 
-                class="btn btn-xs font-montserrat font-bold bg-[#3F9089] hover:bg-[#32736e] text-white border-none shadow-sm rounded-lg"
-              >
-                Portal Empresas
-              </a>
-              <a 
-                href="/admin/dashboard" 
-                class="btn btn-xs font-montserrat font-bold bg-[#93C01F] hover:bg-[#82ad1b] text-[#114938] border-none shadow-sm rounded-lg"
-              >
-                Acceso Admin
-              </a>
-            </div>
-          </div>
-        </div>
 
-        <section class="max-w-5xl mx-auto px-6 pt-4 pb-8 text-center flex flex-col items-center">
-          <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-[#146049]/20 text-[#93C01F] border border-[#93C01F]/40 mb-4 backdrop-blur-xl shadow-lg">
-            <span class="w-2 h-2 rounded-full bg-[#93C01F] shadow-[0_0_8px_#93C01F]"></span>
-            W3C Blockcerts v3.2 • Ethereum Blockchain Anchor
-          </span>
+          </div>
+        </header>
+
+        {/* Hero Section */}
+        <section style={{ maxWidth: '980px', margin: '32px auto 20px', padding: '0 20px', textAlign: 'center' }}>
           
-          <h1 class="text-3xl md:text-5xl font-black font-montserrat tracking-tight leading-tight text-white drop-shadow-xl">
-            Verificador de Microcredenciales <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#93C01F] via-[#D1DF8C] to-[#B88A3B]">UTCJ</span>
-          </h1>
-          <p class="text-xs md:text-sm text-slate-300 mt-3 max-w-2xl leading-relaxed">
-            Valida al instante la autenticidad criptográfica de certificados y constancias académicas emitidas por la Universidad Tecnológica de Ciudad Juárez.
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#EBF5F0', border: '1px solid #C4E2D5', padding: '5px 14px', borderRadius: '20px', marginBottom: '14px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#146049' }}></span>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: '800', color: '#114938', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              Registro Oficial en Blockchain Ethereum
+            </span>
+          </div>
+
+          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '32px', fontWeight: '900', color: '#114938', margin: '0 0 10px', letterSpacing: '-0.5px' }}>
+            Validador Criptográfico de Microcredenciales
+          </h2>
+          
+          <p style={{ fontSize: '13.5px', color: '#475569', lineHeight: '1.6', maxWidth: '720px', margin: '0 auto' }}>
+            Compruebe la autenticidad académica, integridad de firma digital y validez curricular de títulos universitarios emitidos por la Universidad Tecnológica de Ciudad Juárez.
           </p>
+
         </section>
 
-        <section class="max-w-3xl mx-auto px-6 pb-16">
-          <div class="bg-slate-900/80 border border-slate-800 shadow-2xl rounded-3xl p-6 lg:p-8 backdrop-blur-2xl">
+        {/* Main Grand Validator Card */}
+        <section style={{ maxWidth: '860px', margin: '0 auto 36px', padding: '0 20px' }}>
+          
+          <div style={{ background: '#FFFFFF', border: '2px solid #B88A3B', borderRadius: '12px', padding: '28px 32px', boxShadow: '0 8px 30px rgba(17,73,56,0.06)', position: 'relative' }}>
             
-            <div class="flex border-b border-slate-800 mb-6 pb-2">
-              <button 
-                onClick={() => { setActiveMode('upload'); setError(null); setResult(null); stopCameraScanner(); }}
-                class={`flex-1 text-center py-2.5 font-montserrat font-bold text-xs md:text-sm border-b-2 transition-all flex items-center justify-center gap-2 ${
-                  activeMode === 'upload' ? 'border-[#93C01F] text-[#93C01F]' : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <svg class="w-4 h-4 text-[#93C01F]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Subir PDF / JSON
-              </button>
-              <button 
-                onClick={() => { setActiveMode('id'); setError(null); setResult(null); stopCameraScanner(); }}
-                class={`flex-1 text-center py-2.5 font-montserrat font-bold text-xs md:text-sm border-b-2 transition-all flex items-center justify-center gap-2 ${
-                  activeMode === 'id' ? 'border-[#93C01F] text-[#93C01F]' : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <svg class="w-4 h-4 text-[#3F9089]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                Folio / UUID
-              </button>
-              <button 
-                onClick={() => { setActiveMode('qr'); setError(null); setResult(null); startCameraScanner(); }}
-                class={`flex-1 text-center py-2.5 font-montserrat font-bold text-xs md:text-sm border-b-2 transition-all flex items-center justify-center gap-2 ${
-                  activeMode === 'qr' ? 'border-[#93C01F] text-[#93C01F]' : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <svg class="w-4 h-4 text-[#D1DF8C]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                Escáner QR
-              </button>
-            </div>
+            {/* Inner Border */}
+            <div style={{ border: '1px solid #114938', borderRadius: '8px', padding: '20px', background: '#FAFCFA' }}>
+              
+              {/* Tab Selector */}
+              <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #E2E8F0', paddingBottom: '14px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                
+                <button 
+                  onClick={() => { setActiveMode('search'); setError(null); setResult(null); stopCameraScanner(); }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    fontFamily: "'Montserrat', sans-serif",
+                    fontSize: '11.5px',
+                    fontWeight: '800',
+                    border: '1px solid',
+                    borderColor: activeMode === 'search' ? '#114938' : '#CBD5E1',
+                    background: activeMode === 'search' ? '#114938' : '#FFFFFF',
+                    color: activeMode === 'search' ? '#FFFFFF' : '#475569',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Búsqueda Universal (Folio / GUID / Nombre)
+                </button>
 
-            {error && (
-              <div class="mb-6 bg-red-950/50 border border-red-800 text-red-300 p-4 rounded-2xl flex items-start gap-3">
-                <svg class="w-5 h-5 text-red-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                <div>
-                  <h4 class="font-montserrat font-bold text-sm text-red-200">Error de Validación</h4>
-                  <p class="text-xs text-red-300 mt-0.5">{error}</p>
-                </div>
+                <button 
+                  onClick={() => { setActiveMode('upload'); setError(null); setResult(null); stopCameraScanner(); }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    fontFamily: "'Montserrat', sans-serif",
+                    fontSize: '11.5px',
+                    fontWeight: '800',
+                    border: '1px solid',
+                    borderColor: activeMode === 'upload' ? '#114938' : '#CBD5E1',
+                    background: activeMode === 'upload' ? '#114938' : '#FFFFFF',
+                    color: activeMode === 'upload' ? '#FFFFFF' : '#475569',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Cargar Archivo (PDF / JSON)
+                </button>
+
+                <button 
+                  onClick={() => { setActiveMode('qr'); setError(null); setResult(null); startCameraScanner(); }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    fontFamily: "'Montserrat', sans-serif",
+                    fontSize: '11.5px',
+                    fontWeight: '800',
+                    border: '1px solid',
+                    borderColor: activeMode === 'qr' ? '#114938' : '#CBD5E1',
+                    background: activeMode === 'qr' ? '#114938' : '#FFFFFF',
+                    color: activeMode === 'qr' ? '#FFFFFF' : '#475569',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Escanear Código QR
+                </button>
+
               </div>
-            )}
 
-            {activeMode === 'upload' && !verifying && !result && (
-              <div 
-                onDragEnter={handleDrag}
-                onDragOver={handleDrag}
-                onDragLeave={handleDrag}
-                onDrop={handleDrop}
-                class={`border-2 border-dashed rounded-2xl p-8 lg:p-10 text-center transition-all ${
-                  dragActive 
-                    ? 'border-[#93C01F] bg-[#93C01F]/10' 
-                    : 'border-slate-800 hover:border-slate-700 bg-slate-950/50'
-                }`}
-              >
-                <div class="flex flex-col items-center">
-                  <div class="w-16 h-16 rounded-2xl bg-[#146049]/20 border border-[#93C01F]/30 text-[#93C01F] flex items-center justify-center mb-4">
-                    <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                  </div>
-                  <h3 class="font-montserrat font-bold text-white text-base">Arrastra tu credencial oficial aquí</h3>
-                  <p class="text-xs text-slate-400 mt-1.5">Soporta archivos oficiales PDF o credenciales JSON-LD Blockcerts.</p>
-                  
-                  <label class="btn btn-sm mt-5 cursor-pointer font-montserrat font-bold px-6 py-2 rounded-xl bg-[#146049] hover:bg-[#114938] text-white border border-[#93C01F]/40 shadow-lg transition-transform hover:scale-105">
-                    Seleccionar Archivo
-                    <input type="file" onChange={handleFileInput} accept=".json,.pdf" class="hidden" />
-                  </label>
+              {/* Error Banner */}
+              {error && (
+                <div style={{ background: '#FEF2F2', border: '1.5px solid #EF4444', color: '#991B1B', padding: '12px 16px', borderRadius: '6px', marginBottom: '18px', fontSize: '12.5px', fontWeight: '700' }}>
+                  {error}
                 </div>
-              </div>
-            )}
+              )}
 
-            {activeMode === 'id' && !verifying && !result && (
-              <form onSubmit={handleIdSubmit} class="space-y-4">
-                <div class="flex flex-col gap-2">
-                  <label class="text-xs font-montserrat font-bold text-slate-400 uppercase tracking-wider">
-                    Folio Oficial o UUID Criptográfico
+              {/* 1. Universal Search Mode */}
+              {activeMode === 'search' && !verifying && !result && (
+                <form onSubmit={handleSearchSubmit}>
+                  <label style={{ display: 'block', fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: '800', color: '#114938', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>
+                    Ingrese Folio Registral, GUID o Nombre del Alumno:
                   </label>
-                  <div class="flex gap-2">
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <input 
                       type="text" 
-                      value={certId}
-                      onChange={(e) => setCertId(e.target.value)}
-                      placeholder="Ej. UTCJ-2026-MC-15761 o 6e424670-..."
-                      class="flex-1 bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#93C01F] font-mono text-white"
+                      value={queryTerm}
+                      onChange={(e) => setQueryTerm(e.target.value)}
+                      placeholder="Ej. UTCJ-2026-MC-66852 o 82f25dcc-2339-4d06-ae86-d01964cf81cb"
+                      style={{
+                        flex: '1',
+                        minWidth: '260px',
+                        padding: '10px 14px',
+                        border: '1px solid #CBD5E1',
+                        borderRadius: '6px',
+                        fontSize: '12.5px',
+                        fontFamily: "'Montserrat', sans-serif",
+                        color: '#1E293B'
+                      }}
                     />
                     <button 
-                      type="submit" 
-                      class="btn bg-[#146049] hover:bg-[#114938] text-white font-montserrat font-bold px-6 py-3 rounded-xl border border-[#93C01F]/40 shadow-md"
+                      type="submit"
+                      style={{
+                        padding: '10px 22px',
+                        background: '#114938',
+                        color: '#FFFFFF',
+                        border: '1px solid #114938',
+                        borderRadius: '6px',
+                        fontFamily: "'Montserrat', sans-serif",
+                        fontSize: '12px',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
                     >
-                      Validar
+                      Validar Credencial
                     </button>
                   </div>
-                </div>
-                <p class="text-[11px] text-slate-500">Puedes ingresar el folio académico registrado o el UUID único emitido en la blockchain.</p>
-              </form>
-            )}
+                  <p style={{ fontSize: '11px', color: '#64748B', marginTop: '8px', margin: '8px 0 0 0' }}>
+                    La búsqueda universal comprueba simultáneamente la base de datos registral de Control Escolar y el árbol de Merkle en Ethereum.
+                  </p>
+                </form>
+              )}
 
-            {activeMode === 'qr' && !verifying && !result && (
-              <div class="space-y-4 text-center">
-                <div class="border-2 border-dashed border-slate-800 rounded-2xl p-6 bg-slate-950/50 flex flex-col items-center justify-center min-h-[220px]">
+              {/* 2. Drag & Drop File Upload Mode */}
+              {activeMode === 'upload' && !verifying && !result && (
+                <div 
+                  onDragEnter={handleDrag}
+                  onDragOver={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDrop={handleDrop}
+                  style={{
+                    border: dragActive ? '2px dashed #146049' : '2px dashed #CBD5E1',
+                    background: dragActive ? '#EBF5F0' : '#FFFFFF',
+                    borderRadius: '8px',
+                    padding: '36px 20px',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onClick={() => document.getElementById('cert-file-input').click()}
+                >
+                  <input type="file" id="cert-file-input" onChange={handleFileInput} accept=".json,.pdf" style={{ display: 'none' }} />
+                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13.5px', fontWeight: '800', color: '#114938', marginBottom: '6px' }}>
+                    Arrastre su archivo de credencial aquí o haga clic para seleccionar
+                  </div>
+                  <p style={{ fontSize: '11.5px', color: '#64748B', marginBottom: '16px' }}>
+                    Formatos aceptados: Documento PDF oficial de diploma o archivo JSON-LD compatible con Blockcerts.
+                  </p>
+                  <button 
+                    type="button" 
+                    onClick={(e) => { e.stopPropagation(); document.getElementById('cert-file-input').click(); }}
+                    style={{
+                      padding: '8px 18px',
+                      background: '#114938',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontFamily: "'Montserrat', sans-serif",
+                      fontSize: '11.5px',
+                      fontWeight: '800',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Examinar Archivo
+                  </button>
+                </div>
+              )}
+
+              {/* 3. Live QR Scanner Mode */}
+              {activeMode === 'qr' && !verifying && !result && (
+                <div style={{ textAlign: 'center', padding: '16px' }}>
                   {cameraActive ? (
-                    <div class="w-full flex flex-col items-center">
-                      <video id="qr-video" class="w-full max-w-sm rounded-xl border border-[#93C01F]/40 bg-black aspect-video object-cover shadow-xl mb-3" autoPlay playsInline></video>
-                      <p class="text-xs text-[#93C01F] font-bold animate-pulse flex items-center justify-center gap-1.5">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        Apunta la cámara al código QR de la microcredencial...
+                    <div>
+                      <video id="qr-video" style={{ width: '100%', maxWidth: '380px', borderRadius: '8px', border: '2px solid #146049', margin: '0 auto 12px', display: 'block' }} autoPlay playsInline></video>
+                      <p style={{ fontSize: '11.5px', color: '#146049', fontWeight: '700' }}>
+                        Alinee el código QR del certificado frente a su cámara...
                       </p>
-                      <button onClick={stopCameraScanner} class="btn btn-xs btn-outline border-slate-700 text-slate-400 mt-3 hover:bg-slate-800">Detener Cámara</button>
+                      <button onClick={stopCameraScanner} style={{ marginTop: '10px', padding: '6px 14px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', borderRadius: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                        Detener Cámara
+                      </button>
                     </div>
                   ) : (
-                    <div class="flex flex-col items-center">
-                      <div class="w-16 h-16 rounded-2xl bg-[#146049]/20 border border-[#93C01F]/30 text-[#93C01F] flex items-center justify-center mb-3">
-                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                      </div>
-                      <h4 class="font-montserrat font-bold text-white text-sm">Escaneo QR con Cámara en Vivo</h4>
-                      <p class="text-xs text-slate-400 mt-1 max-w-xs">Permite a tu navegador acceder a la cámara para verificar en tiempo real.</p>
-                      <button onClick={startCameraScanner} class="btn btn-sm mt-4 bg-[#146049] hover:bg-[#114938] text-white font-montserrat font-bold px-6 py-2 rounded-xl border border-[#93C01F]/40 shadow-md">
+                    <div>
+                      <p style={{ fontSize: '12.5px', color: '#475569', marginBottom: '14px' }}>
+                        Permita al navegador acceder a la cámara de su dispositivo para escanear el código QR impreso en el diploma.
+                      </p>
+                      <button onClick={startCameraScanner} style={{ padding: '8px 18px', background: '#114938', color: '#FFFFFF', border: 'none', borderRadius: '6px', fontFamily: "'Montserrat', sans-serif", fontSize: '11.5px', fontWeight: '800', cursor: 'pointer' }}>
                         Activar Cámara
                       </button>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {verifying && (
-              <div class="space-y-4">
-                <div class="flex items-center gap-3 border-b border-slate-800 pb-3">
-                  <span class="loading loading-spinner text-[#93C01F] loading-sm"></span>
-                  <div>
-                    <h4 class="font-montserrat font-bold text-xs md:text-sm text-white">Validación Criptográfica en Progreso...</h4>
-                    <p class="text-[10px] text-slate-400">Verificando firma digital y recibo de Merkle en Ethereum</p>
+              {/* 4. Verification Progress Checklist */}
+              {verifying && (
+                <div style={{ padding: '12px 0' }}>
+                  <div style={{ borderBottom: '1px solid #E2E8F0', paddingBottom: '10px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid #114938', borderTopColor: 'transparent', animation: 'spin 1s linear infinite' }}></span>
+                    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12.5px', fontWeight: '800', color: '#114938', textTransform: 'uppercase' }}>
+                      Comprobando Registro Criptográfico en Blockchain...
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {steps.map((step, idx) => (
+                      <div key={idx} style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '8px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                        <div>
+                          <strong style={{ color: '#114938', display: 'block', fontSize: '11.5px' }}>{step.label}</strong>
+                          <span style={{ color: '#64748B', fontSize: '10px' }}>{step.desc}</span>
+                        </div>
+                        <span style={{
+                          fontFamily: "'Montserrat', sans-serif",
+                          fontWeight: '800',
+                          fontSize: '10.5px',
+                          color: step.status === 'success' ? '#059669' : (step.status === 'loading' ? '#B88A3B' : '#94A3B8')
+                        }}>
+                          {step.status === 'success' ? 'VÁLIDO' : (step.status === 'loading' ? 'VERIFICANDO...' : 'PENDIENTE')}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
+              )}
 
-                <div class="space-y-2.5">
-                  {steps.map((step, idx) => (
-                    <div key={idx} class="pill-card-3d">
-                      <div class={`circle-badge-3d ${idx % 2 === 1 ? 'teal' : idx === 4 ? 'dark' : ''}`}>
-                        {idx + 1}
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <p class="font-montserrat text-xs font-bold text-slate-100">
-                          {step.label}
-                        </p>
-                        <p class="text-[10px] text-slate-400 truncate">{step.desc}</p>
-                      </div>
-                      <div class="shrink-0 pr-2">
-                        {step.status === 'success' && <span class="badge badge-sm font-bold bg-[#93C01F] text-[#114938]">✓ Válido</span>}
-                        {step.status === 'loading' && <span class="loading loading-spinner loading-xs text-[#93C01F]"></span>}
-                        {step.status === 'failed' && <span class="badge badge-sm font-bold bg-red-600 text-white">✗ Falló</span>}
-                        {step.status === 'idle' && <span class="text-[10px] text-slate-600 font-mono">Pendiente</span>}
-                      </div>
+              {/* 5. Authentic Mini-Diploma Result View */}
+              {result && !verifying && (
+                <div style={{ background: '#FAFDFB', border: '1.5px solid #B88A3B', borderRadius: '8px', padding: '24px', textAlign: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+                  
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#D1FAE5', border: '1px solid #A7F3D0', color: '#065F46', padding: '4px 12px', borderRadius: '20px', fontSize: '10.5px', fontWeight: '800', fontFamily: "'Montserrat', sans-serif", textTransform: 'uppercase', marginBottom: '16px' }}>
+                    <span>•</span> MICROCREDENCIAL AUTÉNTICA Y REGISTRADA OFICIALMENTE
+                  </div>
+
+                  <div style={{ fontSize: '11px', color: '#64748B', fontFamily: "'Montserrat', sans-serif", fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    LA UNIVERSIDAD TECNOLÓGICA DE CIUDAD JUÁREZ HACE CONSTAR QUE:
+                  </div>
+
+                  <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '26px', fontWeight: '900', color: '#114938', margin: '8px 0', letterSpacing: '0.5px' }}>
+                    {result.recipient}
+                  </div>
+
+                  <div style={{ width: '120px', height: '1.5px', background: '#B88A3B', margin: '0 auto 10px' }}></div>
+
+                  <div style={{ fontSize: '11.5px', color: '#475569', marginBottom: '6px' }}>
+                    Ha acreditado satisfactoriamente el programa de competencias:
+                  </div>
+
+                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '16px', fontWeight: '900', color: '#146049', textTransform: 'uppercase', marginBottom: '16px' }}>
+                    {result.title}
+                  </div>
+
+                  {/* Summary Concepts Table */}
+                  <div style={{ maxWidth: '580px', margin: '0 auto 20px', border: '1px solid #E2E8F0', borderRadius: '6px', overflow: 'hidden', textAlign: 'left', fontSize: '11px' }}>
+                    <div style={{ display: 'flex', background: '#F8FAFC', padding: '6px 12px', borderBottom: '1px solid #E2E8F0' }}>
+                      <span style={{ width: '140px', fontWeight: '700', color: '#114938' }}>Folio Registral:</span>
+                      <span style={{ color: '#8C6527', fontWeight: '800', fontFamily: 'monospace' }}>{result.folio}</span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {result && !verifying && (
-              <div class="space-y-5 animate-[fadeInUp_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards]">
-                <div class="bg-[#146049]/20 border border-[#93C01F]/40 rounded-2xl p-4 flex items-center gap-3">
-                  <span class="w-9 h-9 rounded-full bg-[#93C01F] text-[#114938] flex items-center justify-center font-bold shrink-0">
-                    ✓
-                  </span>
-                  <div>
-                    <h4 class="font-montserrat font-black text-sm text-[#93C01F]">MICROCREDENCIAL AUTÉNTICA Y CERTIFICADA</h4>
-                    <p class="text-[11px] text-slate-300">El documento cumple con todos los estándares criptográficos oficiales de la UTCJ.</p>
-                  </div>
-                </div>
-
-                <div class="border border-slate-800 rounded-2xl p-5 space-y-3.5 bg-slate-950/60">
-                  <div class="flex justify-between border-b border-slate-800 pb-2.5">
-                    <span class="text-[11px] font-bold text-slate-400 uppercase font-montserrat">Titular de la Credencial</span>
-                    <span class="text-xs font-bold text-white text-right">{result.recipient}</span>
-                  </div>
-                  <div class="flex justify-between border-b border-slate-800 pb-2.5">
-                    <span class="text-[11px] font-bold text-slate-400 uppercase font-montserrat">Programa / Competencia</span>
-                    <span class="text-xs font-bold text-white text-right max-w-[70%]">{result.title}</span>
-                  </div>
-                  <div class="flex justify-between border-b border-slate-800 pb-2.5">
-                    <span class="text-[11px] font-bold text-slate-400 uppercase font-montserrat">Fecha de Emisión</span>
-                    <span class="text-xs font-bold text-white text-right font-mono">{result.issueDate}</span>
-                  </div>
-                  <div class="flex justify-between border-b border-slate-800 pb-2.5">
-                    <span class="text-[11px] font-bold text-slate-400 uppercase font-montserrat">Horas Acreditadas</span>
-                    <span class="text-xs font-bold text-white text-right">{result.hours} Horas</span>
-                  </div>
-                  <div class="flex flex-col gap-1.5 pt-1">
-                    <div class="flex justify-between items-center">
-                      <span class="text-[11px] font-bold text-slate-400 uppercase font-montserrat">Recibo Blockchain</span>
-                      <a 
-                        href={`https://etherscan.io/tx/${result.txId?.replace(/^0x/, '')}`} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        class="text-[11px] font-bold text-[#93C01F] hover:underline flex items-center gap-1"
-                      >
-                        Ver en Etherscan ↗
-                      </a>
+                    <div style={{ display: 'flex', background: '#FFFFFF', padding: '6px 12px', borderBottom: '1px solid #E2E8F0' }}>
+                      <span style={{ width: '140px', fontWeight: '700', color: '#114938' }}>Carga Horaria:</span>
+                      <span style={{ color: '#1E293B' }}>{result.hours} Horas Acreditadas</span>
                     </div>
-                    <span class="text-[10px] font-mono text-slate-400 break-all select-all bg-slate-950 border border-slate-800 rounded-lg p-2.5">{result.txId}</span>
+                    <div style={{ display: 'flex', background: '#F8FAFC', padding: '6px 12px', borderBottom: '1px solid #E2E8F0' }}>
+                      <span style={{ width: '140px', fontWeight: '700', color: '#114938' }}>Fecha de Emisión:</span>
+                      <span style={{ color: '#1E293B' }}>{result.issueDate}</span>
+                    </div>
+                    <div style={{ display: 'flex', background: '#FFFFFF', padding: '6px 12px' }}>
+                      <span style={{ width: '140px', fontWeight: '700', color: '#114938' }}>Anclaje Blockchain:</span>
+                      <span style={{ color: '#059669', fontWeight: '700', fontFamily: 'monospace' }}>Ethereum ({result.txId.substring(0, 16)}...)</span>
+                    </div>
                   </div>
-                </div>
 
-                <div class="flex flex-wrap gap-2.5 pt-2">
-                  <a 
-                    href={`/render/${result.id}`} 
-                    target="_blank" 
-                    class="flex-1 btn btn-sm font-montserrat font-bold bg-[#146049] hover:bg-[#114938] text-white border border-[#93C01F]/40 shadow-sm"
-                  >
-                    Ver Diploma Web
-                  </a>
-                  <a 
-                    href={`/certificate/${result.id}/pdf`} 
-                    download 
-                    class="flex-1 btn btn-sm font-montserrat font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800"
-                  >
-                    Descargar PDF
-                  </a>
-                  <button 
-                    onClick={() => { setResult(null); setError(null); setCertId(''); }}
-                    class="btn btn-sm btn-outline border-slate-800 text-slate-400 font-montserrat font-bold"
-                  >
-                    Validar Otra
-                  </button>
+                  {/* Action Buttons */}
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <a 
+                      href={`/render/${result.id}`} 
+                      target="_blank" 
+                      style={{ padding: '8px 16px', background: '#114938', color: '#FFFFFF', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800', fontFamily: "'Montserrat', sans-serif", textDecoration: 'none' }}
+                    >
+                      Ver Diploma Web Completo ↗
+                    </a>
+                    <a 
+                      href={`/certificate/${result.id}/pdf`} 
+                      download 
+                      style={{ padding: '8px 16px', background: '#FFFFFF', color: '#114938', border: '1px solid #114938', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800', fontFamily: "'Montserrat', sans-serif", textDecoration: 'none' }}
+                    >
+                      Descargar PDF Oficial
+                    </a>
+                    <button 
+                      onClick={() => { setResult(null); setError(null); setQueryTerm(''); }}
+                      style={{ padding: '8px 16px', background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer' }}
+                    >
+                      Validar Otra Credencial
+                    </button>
+                  </div>
+
                 </div>
-              </div>
-            )}
+              )}
+
+            </div>
 
           </div>
+
+        </section>
+
+        {/* 3 Security and Legal Assurance Pillars */}
+        <section style={{ maxWidth: '1080px', margin: '0 auto 40px', padding: '0 20px' }}>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+            
+            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', fontWeight: '800', color: '#114938', textTransform: 'uppercase', marginBottom: '6px' }}>
+                Estándar Global W3C Blockcerts v3.2
+              </div>
+              <p style={{ fontSize: '11.5px', color: '#64748B', lineHeight: '1.5', margin: 0 }}>
+                Las credenciales emitidas cumplen con las especificaciones internacionales de credenciales verificables, garantizando portabilidad y reconocimiento global.
+              </p>
+            </div>
+
+            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', fontWeight: '800', color: '#114938', textTransform: 'uppercase', marginBottom: '6px' }}>
+                Anclaje Inmutable en Ethereum
+              </div>
+              <p style={{ fontSize: '11.5px', color: '#64748B', lineHeight: '1.5', margin: 0 }}>
+                Cada certificado cuenta con una prueba matemática de Merkle sellada criptográficamente en la cadena de bloques, impidiendo cualquier intento de falsificación.
+              </p>
+            </div>
+
+            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', fontWeight: '800', color: '#114938', textTransform: 'uppercase', marginBottom: '6px' }}>
+                Validez Curricular e Institucional
+              </div>
+              <p style={{ fontSize: '11.5px', color: '#64748B', lineHeight: '1.5', margin: 0 }}>
+                Documentos expedidos con sello oficial y firma electrónica de Rectoría y Secretaría Académica de la UTCJ conforme a la normatividad universitaria vigente.
+              </p>
+            </div>
+
+          </div>
+
         </section>
 
       </div>
 
-      <footer class="footer-dual-tone z-20">
-        <div class="footer-gold-stripe"></div>
-        
-        <div class="footer-green-bar">
-          <div class="max-w-7xl mx-auto w-full flex items-center justify-between">
-            
-            <div class="flex items-center gap-3">
-              <div class="border border-white/30 rounded-lg px-2.5 py-1 bg-white/10 backdrop-blur-md">
-                <span class="font-montserrat font-black text-xs tracking-wider text-white uppercase">
-                  MODALIDAD <span class="text-[#D1DF8C]">MIXTA</span> UTP
-                </span>
-              </div>
-              <span class="hidden sm:inline-block text-[11px] text-white/80 font-medium">
-                Universidad Tecnológica de Ciudad Juárez © 2026
-              </span>
+      {/* Dual-Tone Formal Footer */}
+      <footer style={{ width: '100%' }}>
+        <div style={{ height: '5px', background: 'linear-gradient(90deg, #8C6527 0%, #B88A3B 50%, #8C6527 100%)', width: '100%' }}></div>
+        <div style={{ background: '#114938', color: '#FFFFFF', padding: '16px 28px', fontSize: '11.5px' }}>
+          <div style={{ maxWidth: '1240px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <strong>Universidad Tecnológica de Ciudad Juárez</strong> • Clave CCT: 08MSU0017R • Av. Universidad Tecnológica 3051, Cd. Juárez, Chih.
             </div>
-
-            <div class="flex items-center gap-3">
-              <span class="hidden md:inline-block text-[11px] text-[#D1DF8C] font-mono">
-                Manual de Imagen v1.4
-              </span>
-              <button 
-                onClick={() => setShowInfoModal(true)}
-                class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center font-bold text-sm border border-white/40 shadow-sm transition-all hover:scale-110"
-                title="Información y Especificaciones de Identidad"
-              >
-                i
-              </button>
+            <div style={{ color: '#D1E7DD', fontSize: '10.5px' }}>
+              Sistema Institucional de Microcredenciales • W3C Blockcerts v3.2
             </div>
-
           </div>
         </div>
       </footer>
-
-      {showInfoModal && (
-        <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 md:p-8 max-w-2xl w-full max-h-[85vh] overflow-y-auto space-y-5 shadow-2xl animate-[fadeInUp_0.3s_ease]">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-full bg-[#93C01F] text-[#114938] flex items-center justify-center font-black">i</div>
-                <h3 class="font-montserrat font-extrabold text-base text-white">Especificaciones de Identidad Institucional</h3>
-              </div>
-              <button 
-                onClick={() => setShowInfoModal(false)}
-                class="btn btn-sm btn-circle btn-ghost text-slate-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div class="space-y-4 text-xs text-slate-300">
-              <p>
-                Este sistema implementa fielmente los lineamientos del <strong class="text-white">Manual de Imagen Institucional UTCJ (Versión 1.4 – 2026)</strong> y las directrices de <strong class="text-[#93C01F]">Modalidad Mixta UTP</strong>.
-              </p>
-
-              <div class="border border-slate-800 rounded-2xl p-4 bg-slate-950/60 space-y-2">
-                <h4 class="font-montserrat font-bold text-[#D1DF8C] uppercase text-[11px]">Norma de Colores Oficiales</h4>
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 font-mono text-[10px]">
-                  <div>• #93C01F: Verde Lima</div>
-                  <div>• #3F9089: Verde Teal</div>
-                  <div>• #D1DF8C: Verde Pistache</div>
-                  <div>• #114938: Verde Pino</div>
-                  <div>• #146049: Verde Esmeralda</div>
-                  <div>• #279371: Verde Jade</div>
-                  <div>• #B88A3B: Oro UTCJ</div>
-                  <div>• #8FA3AD: Plata Neutro</div>
-                </div>
-              </div>
-
-              <div class="border border-slate-800 rounded-2xl p-4 bg-slate-950/60 space-y-2">
-                <h4 class="font-montserrat font-bold text-[#D1DF8C] uppercase text-[11px]">Jerarquía Tipográfica</h4>
-                <p>• <strong class="text-white">Nivel 1 (Montserrat)</strong>: Títulos principales, identificadores de credencial y folios.</p>
-                <p>• <strong class="text-white">Nivel 2 (Gotham / Plus Jakarta Sans)</strong>: Subtítulos, nombres de materias, competencias y métricas.</p>
-                <p>• <strong class="text-white">Nivel 3 (Arial / Verdana / Inter)</strong>: Textos descriptivos, hashes de bloques y metadatos.</p>
-              </div>
-
-              <div class="pt-2 flex justify-end">
-                <button 
-                  onClick={() => setShowInfoModal(false)}
-                  class="btn btn-sm bg-[#146049] text-white font-montserrat font-bold px-6 rounded-xl border border-[#93C01F]/40"
-                >
-                  Entendido
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

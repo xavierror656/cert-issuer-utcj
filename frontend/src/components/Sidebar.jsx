@@ -74,10 +74,10 @@ export function Sidebar({ activeTab, onTabChange, username, isDarkMode, onThemeT
           {/* Theme Toggle */}
           <button
             onClick={onThemeToggle}
-            class="p-1.5 rounded-lg border border-slate-800 bg-slate-800/60 hover:bg-slate-800 text-slate-300 text-xs"
+            class="px-2 py-1 rounded-lg border border-slate-800 bg-slate-800/60 hover:bg-slate-800 text-slate-300 text-[10px] font-bold"
             title="Alternar Modo Oscuro/Claro"
           >
-            {isDarkMode ? '☀️' : '🌙'}
+            {isDarkMode ? 'Claro' : 'Oscuro'}
           </button>
 
           {/* Logout Button */}
